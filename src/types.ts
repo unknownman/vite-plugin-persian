@@ -1,8 +1,15 @@
 /**
- * Represents a single date in the Jalali (Persian/Solar Hijri) calendar.
+ * Represents a Gregorian date/time input accepted by the Jalali helpers.
  *
- * Months are 1-indexed, matching the Persian calendar convention where
- * Farvardin = 1, Ordibehesht = 2, ..., Esfand = 12.
+ * - `Date` – used as-is (local time components).
+ * - `number` – treated as a UNIX timestamp in milliseconds.
+ * - `string` – any string accepted by `new Date()` (e.g. an ISO 8601 string).
+ */
+export type DateInput = Date | string | number;
+
+/**
+ * A single date in the Jalali (Persian/Solar Hijri) calendar,
+ * with 1-indexed months (1 = Farvardin … 12 = Esfand).
  */
 export interface JalaliDate {
   /** Jalali year (e.g. `1403`) */
@@ -14,14 +21,16 @@ export interface JalaliDate {
 }
 
 /**
- * Returns a `JalaliDate` for the given Gregorian date.
+ * Converts a Gregorian date/time to a `JalaliDate` (using local time
+ * components). Throws on invalid input.
  */
-export type ToJalali = (gregorianDate: Date | string) => JalaliDate;
+export type ToJalali = (gregorianDate: DateInput) => JalaliDate;
 
 /**
- * Converts a `JalaliDate` back to a Gregorian `Date`.
+ * Converts a `JalaliDate` to the equivalent Gregorian `Date`
+ * (local midnight). Throws on invalid Jalali dates.
  */
-export type ToGregorian = (jalaliDate: JalaliDate) => Date;
+export type ToGregorian = (jy: number, jm: number, jd: number) => Date;
 
 /**
  * Tokens supported by `JalaliDateFormat` patterns.
@@ -34,18 +43,18 @@ export type JalaliFormatToken = "YYYY" | "YY" | "MMMM" | "MMM" | "MM" | "DD" | "
 export type JalaliDateFormat = string;
 
 /**
- * Formats a `JalaliDate` using a pattern of tokens (e.g. `"YYYY/MM/DD"`).
+ * Formats a date using a pattern of tokens (e.g. `"YYYY/MM/DD"`).
  *
  * Supported tokens:
  * - `YYYY` – full year (e.g. `1403`)
  * - `YY`   – two-digit year (e.g. `03`)
- * - `MMMM` – full month name, e.g. «مهر»
- * - `MMM`  – abbreviated month name
+ * - `MMMM` – full Persian month name, e.g. «مهر»
+ * - `MMM`  – abbreviated Persian month name
  * - `MM`   – two-digit month (e.g. `07`)
  * - `DD`   – two-digit day (e.g. `05`)
  * - `d`    – day without leading zero (e.g. `5`)
  */
-export type FormatJalali = (date: JalaliDate, pattern?: JalaliDateFormat) => string;
+export type FormatJalali = (date: DateInput, pattern?: JalaliDateFormat) => string;
 
 /**
  * Returns `true` when the given Jalali year is a leap year.
@@ -53,32 +62,50 @@ export type FormatJalali = (date: JalaliDate, pattern?: JalaliDateFormat) => str
 export type IsLeapJalaliYear = (year: number) => boolean;
 
 /**
- * Length variant for month names.
+ * Language used to render month names.
  */
-export type MonthNameFormat = "short" | "long";
+export type MonthNameLocale = "fa" | "en";
 
 /**
- * Resolves a month number (1–12) to its Persian name (e.g. «مهر»).
+ * Resolves a month number (1–12) to its name.
  *
- * - `long`  – full name, e.g. «مهر»
- * - `short` – abbreviated name, e.g. «مه»
+ * - `fa` – e.g. «مهر»
+ * - `en` – e.g. «Mehr»
  */
-export type GetMonthName = (month: number, format?: MonthNameFormat) => string;
+export type GetMonthName = (month: number, locale?: MonthNameLocale) => string;
 
 /**
  * The functions exposed by the `virtual:persian/jalali` module.
  */
 export interface JalaliVirtualModule {
-  /** Formats a `JalaliDate` using a pattern of tokens. */
+  /** Formats a date (Date | string | number) using a pattern of tokens. */
   formatJalali: FormatJalali;
-  /** Converts a Gregorian date to a `JalaliDate`. */
+  /** Converts a Gregorian date/time to a `JalaliDate`. */
   toJalali: ToJalali;
   /** Converts a `JalaliDate` to a Gregorian `Date`. */
   toGregorian: ToGregorian;
   /** Returns `true` when the given Jalali year is a leap year. */
   isLeapJalaliYear: IsLeapJalaliYear;
-  /** Resolves a month number to its Persian name. */
+  /** Resolves a month number to its name (`fa` or `en`). */
   getMonthName: GetMonthName;
+}
+
+/**
+ * A minimal, engine-agnostic interface that every Jalali calendar backend
+ * implements. Engines only need to know the three core primitives —
+ * Gregorian→Jalali (via a `Date`), Jalali→Gregorian, and leap-year lookup —
+ * while shared concerns (month names, formatting, input validation) live in
+ * the Jalali module layer.
+ */
+export interface CalendarEngine {
+  /** The engine's identity, matching the `JalaliEngine` option value. */
+  readonly id: JalaliEngine;
+  /** Converts a Gregorian date (local components) to a `JalaliDate`. */
+  toJalali(date: Date): JalaliDate;
+  /** Converts a validated Jalali date to the equivalent Gregorian `Date`. */
+  toGregorian(jy: number, jm: number, jd: number): Date;
+  /** Returns `true` when the given Jalali year is a leap year. */
+  isLeapYear(jy: number): boolean;
 }
 
 /**
