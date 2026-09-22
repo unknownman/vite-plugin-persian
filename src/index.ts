@@ -1,4 +1,5 @@
-export { persian } from "./plugin.js";
+export { persian, resolveOptions } from "./plugin.js";
+export { persian as default } from "./plugin.js";
 
 export type {
   PersianOptions,

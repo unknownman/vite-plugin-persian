@@ -13,6 +13,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./methods": {
+      "types": "./dist/methods.d.ts",
+      "import": "./dist/methods.js",
+      "require": "./dist/methods.cjs"
     }
   },
   "files": [
