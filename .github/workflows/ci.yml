@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: test (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  # Exercises the plugin's integration tests against every supported Vite
+  # major. Vite 5 is the only one that needs global installing a different
+  # Vitest (Vite 5 is not in Vitest 5's peer range).
+  vite-compat:
+    name: vite ${{ matrix.vite }} (node 22)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { vite: "5.4.21", vitest: "2.1.9" }
+          - { vite: "6.4.3", vitest: "5.0.1" }
+          - { vite: "7.3.6", vitest: "5.0.1" }
+          - { vite: "8.3.0", vitest: "5.0.1" }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install target Vite + matching Vitest
+        run: npm i -D "vite@${{ matrix.vite }}" "vitest@${{ matrix.vitest }}" --no-audit --no-fund
+      - name: Integration tests against this Vite version
+        run: npx vitest run tests/integration
+
+  package:
+    name: package check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm pack --dry-run

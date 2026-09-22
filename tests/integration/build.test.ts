@@ -12,130 +12,100 @@ const METHODS_SOURCE = resolve(ROOT, "src/methods.ts");
 
 /** Marker string that only exists inside the `intl` engine. */
 const INTL_MARKER = "en-US-u-ca-persian";
+/** Marker string that only exists inside the `jalaali-js` engine (`id`). */
+const JALAALI_JS_MARKER = '"jalaali-js"';
 
 const TEMP_DIRS: string[] = [];
 
-/** Minimal Vite app that imports the Jalali + text virtual modules. */
 const INDEX_HTML = `<!doctype html>
 <html>
   <head><meta charset="UTF-8" /></head>
   <body><script type="module" src="/src/main.ts"></script></body>
 </html>`;
 
-const MAIN_TS = `
-import { formatJalali } from "virtual:persian/jalali";
-import { toPersianDigits } from "virtual:persian/text";
+const INDEX_HTML_LTR = `<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" /></head>
+  <body><script type="module" src="/src/main.ts"></script></body>
+</html>`;
+
+/** Imports every legacy feature and records results on `globalThis`. */
+const FULL_SURFACE_MAIN_TS = `
+import { formatJalali, toJalali, toGregorian, isLeapJalaliYear, getMonthName } from "virtual:persian/jalali";
+import { toPersianDigits, toEnglishDigits, normalizePersianText } from "virtual:persian/text";
+import { toJalali as mainToJalali } from "virtual:persian";
 (globalThis as any).__PERSIAN_RESULT__ = JSON.stringify({
   year: formatJalali(new Date(2024, 2, 20), "YYYY/MM/DD"),
+  jy: toJalali(new Date(2024, 2, 20)).year,
+  gy: toGregorian(1403, 1, 1).getFullYear(),
+  leap: isLeapJalaliYear(1403),
+  monthFa: getMonthName(1),
+  monthEn: getMonthName(10, "en"),
   digits: toPersianDigits("2024"),
+  english: toEnglishDigits("۲۰۲۴"),
+  norm: normalizePersianText("يك   تست"),
+  mainJy: mainToJalali(new Date(2024, 2, 20)).year,
 });
 `;
 
-async function writeFixture(): Promise<string> {
+/** Imports only the Jalali module — used for the tree-shaking assertions. */
+const JALALI_ONLY_MAIN_TS = `
+import { formatJalali } from "virtual:persian/jalali";
+(globalThis as any).__PERSIAN_RESULT__ = JSON.stringify({
+  year: formatJalali(new Date(2024, 2, 20), "YYYY/MM/DD"),
+});
+`;
+
+/** Imports only the text module — used for the disabled-feature test. */
+const TEXT_ONLY_MAIN_TS = `
+import { toPersianDigits } from "virtual:persian/text";
+(globalThis as any).__PERSIAN_RESULT__ = toPersianDigits("2024");
+`;
+
+const EXPECTED_FULL_SURFACE = JSON.stringify({
+  year: "1403/01/01",
+  jy: 1403,
+  gy: 2024,
+  leap: true,
+  monthFa: "فروردین",
+  monthEn: "Dey",
+  digits: "۲۰۲۴",
+  english: "2024",
+  norm: "یک تست",
+  mainJy: 1403,
+});
+
+async function writeFixture({
+  html = INDEX_HTML,
+  main = FULL_SURFACE_MAIN_TS,
+}: {
+  html?: string;
+  main?: string;
+} = {}): Promise<string> {
   // `realpath` resolves macOS' `/var` -> `/private/var` symlink so Vite's
   // `root`/`outDir` computations all agree on the same real path.
   const dir = await realpath(await mkdtemp(join(tmpdir(), "vite-plugin-persian-")));
   TEMP_DIRS.push(dir);
   await mkdir(join(dir, "src"), { recursive: true });
-  await writeFile(join(dir, "index.html"), INDEX_HTML);
-  await writeFile(join(dir, "src", "main.ts"), MAIN_TS);
+  await writeFile(join(dir, "index.html"), html);
+  await writeFile(join(dir, "src", "main.ts"), main);
   return dir;
 }
 
-/** Builds the fixture with the plugin and returns the temp root dir. */
-async function buildFixture(options: PersianOptions = {}): Promise<string> {
-  const root = await writeFixture();
+async function runBuild(
+  root: string,
+  options: PersianOptions = {},
+): Promise<void> {
   await build({
     root,
     plugins: [persian(options)],
     logLevel: "error",
     build: { minify: false, write: true },
-    resolve: {
-      alias: {
-        "vite-plugin-persian/methods": METHODS_SOURCE,
-      },
-    },
+    resolve: { alias: { "vite-plugin-persian/methods": METHODS_SOURCE } },
   });
-  return root;
 }
 
-afterAll(async () => {
-  await Promise.all(TEMP_DIRS.map((dir) => rm(dir, { recursive: true, force: true })));
-});
-
-describe("integration: real vite build", () => {
-  it(
-    "injects lang/dir into the built index.html",
-    async () => {
-      const root = await buildFixture();
-      const html = await readFile(join(root, "dist", "index.html"), "utf-8");
-      expect(html).toContain('<html lang="fa" dir="rtl">');
-    },
-    30_000,
-  );
-
-  it(
-    "tree-shakes the unused engine out of the consumer bundle",
-    async () => {
-      const root = await buildFixture();
-      const asset = await findAsset(root);
-      const code = await readFile(asset, "utf-8");
-      expect(code).not.toContain(INTL_MARKER);
-
-      const result = await evaluate(asset);
-      expect(result).toBe(JSON.stringify({ year: "1403/01/01", digits: "۲۰۲۴" }));
-    },
-    30_000,
-  );
-
-  it(
-    "keeps the intl engine when selected",
-    async () => {
-      const root = await buildFixture({ jalali: { engine: "intl" } });
-      const asset = await findAsset(root);
-      const code = await readFile(asset, "utf-8");
-      expect(code).toContain(INTL_MARKER);
-    },
-    30_000,
-  );
-
-  it(
-    "fails the build when a disabled module is imported",
-    async () => {
-      const root = await writeFixture();
-      await expect(
-        build({
-          root,
-          plugins: [persian({ jalali: { enabled: false } })],
-          logLevel: "error",
-          resolve: { alias: { "vite-plugin-persian/methods": METHODS_SOURCE } },
-        }),
-      ).rejects.toThrow(/disabled/);
-    },
-    30_000,
-  );
-
-  it(
-    "transforms index.html through the dev server",
-    async () => {
-      const root = await writeFixture();
-      const server = await createServer({
-        root,
-        plugins: [persian()],
-        server: { middlewareMode: true },
-        logLevel: "error",
-      });
-      try {
-        const html = await server.transformIndexHtml("/", "<!doctype html>\n<html>\n</html>");
-        expect(String(html)).toContain('<html lang="fa" dir="rtl">');
-      } finally {
-        await server.close();
-      }
-    },
-    30_000,
-  );
-});
-
+/** Returns the single emitted `.js` asset path (or throws). */
 async function findAsset(root: string): Promise<string> {
   const dist = join(root, "dist");
   const files = await readdirRecursive(dist);
@@ -159,6 +129,7 @@ async function readdirRecursive(dir: string): Promise<string[]> {
   return out;
 }
 
+/** Executes a built app bundle in Node and returns the recorded result. */
 async function evaluate(asset: string): Promise<string> {
   const env = globalThis as { document?: unknown; __PERSIAN_RESULT__?: string };
   // Vite's modulepreload polyfill runs at module top-level and needs a DOM.
@@ -176,3 +147,139 @@ async function evaluate(asset: string): Promise<string> {
     delete env.__PERSIAN_RESULT__;
   }
 }
+
+afterAll(async () => {
+  await Promise.all(TEMP_DIRS.map((dir) => rm(dir, { recursive: true, force: true })));
+});
+
+describe("integration: real vite build", () => {
+  it(
+    "injects default lang/dir into the built index.html",
+    async () => {
+      const root = await writeFixture();
+      await runBuild(root);
+      const html = await readFile(join(root, "dist", "index.html"), "utf-8");
+      expect(html).toContain('<html lang="fa" dir="rtl">');
+      expect(html).not.toContain('lang="en"');
+    },
+    30_000,
+  );
+
+  it(
+    "honours custom html options in the built output",
+    async () => {
+      const root = await writeFixture({ html: INDEX_HTML_LTR });
+      await runBuild(root, { html: { lang: "en", dir: "ltr" } });
+      const html = await readFile(join(root, "dist", "index.html"), "utf-8");
+      expect(html).toContain('<html lang="en" dir="ltr">');
+    },
+    30_000,
+  );
+
+  it(
+    "executes all virtual modules (jalali, text, and the main entry) at runtime",
+    async () => {
+      const root = await writeFixture();
+      await runBuild(root);
+      const asset = await findAsset(root);
+      expect(await evaluate(asset)).toBe(EXPECTED_FULL_SURFACE);
+    },
+    30_000,
+  );
+
+  it(
+    "tree-shakes the intl engine out of a default (jalaali-js) build",
+    async () => {
+      const root = await writeFixture({ main: JALALI_ONLY_MAIN_TS });
+      await runBuild(root);
+      const asset = await findAsset(root);
+      const code = await readFile(asset, "utf-8");
+      expect(code).not.toContain(INTL_MARKER);
+      expect(code).not.toContain("Intl.DateTimeFormat");
+      expect(code).toContain(JALAALI_JS_MARKER);
+      expect(await evaluate(asset)).toBe(JSON.stringify({ year: "1403/01/01" }));
+    },
+    30_000,
+  );
+
+  it(
+    "tree-shakes the jalaali-js engine out of an intl build",
+    async () => {
+      const root = await writeFixture({ main: JALALI_ONLY_MAIN_TS });
+      await runBuild(root, { jalali: { engine: "intl" } });
+      const code = await readFile(await findAsset(root), "utf-8");
+      expect(code).toContain(INTL_MARKER);
+      expect(code).not.toContain(JALAALI_JS_MARKER);
+    },
+    30_000,
+  );
+
+  it(
+    "fails the build when the disabled jalali module is imported",
+    async () => {
+      const root = await writeFixture({ main: JALALI_ONLY_MAIN_TS });
+      await expect(
+        runBuild(root, { jalali: { enabled: false } }),
+      ).rejects.toThrow(/virtual:persian\/jalali.*disabled/s);
+    },
+    30_000,
+  );
+
+  it(
+    "fails the build when the disabled text module is imported",
+    async () => {
+      const root = await writeFixture({ main: TEXT_ONLY_MAIN_TS });
+      await expect(
+        runBuild(root, { text: { enabled: false } }),
+      ).rejects.toThrow(/virtual:persian\/text.*disabled/s);
+    },
+    30_000,
+  );
+});
+
+describe("integration: dev server", () => {
+  it(
+    "transforms index.html in dev mode",
+    async () => {
+      const root = await writeFixture();
+      const server = await createServer({
+        root,
+        plugins: [persian()],
+        server: { middlewareMode: true },
+        logLevel: "error",
+      });
+      try {
+        const html = await server.transformIndexHtml("/", "<!doctype html>\n<html>\n</html>");
+        expect(String(html)).toContain('<html lang="fa" dir="rtl">');
+      } finally {
+        await server.close();
+      }
+    },
+    30_000,
+  );
+
+  it(
+    "serves a working jalali module through SSR module loading",
+    async () => {
+      const root = await writeFixture();
+      const server = await createServer({
+        root,
+        plugins: [persian()],
+        server: { middlewareMode: true },
+        logLevel: "error",
+        resolve: { alias: { "vite-plugin-persian/methods": METHODS_SOURCE } },
+      });
+      try {
+        const mod = (await server.ssrLoadModule("virtual:persian/jalali")) as {
+          formatJalali: (date: Date, pattern: string) => string;
+          toJalali: (date: Date) => { year: number };
+        };
+        expect(mod.formatJalali(new Date(2024, 2, 20), "YYYY/MM/DD")).toBe("1403/01/01");
+        expect(mod.toJalali(new Date(2024, 2, 20)).year).toBe(1403);
+      } finally {
+        await server.close();
+      }
+    },
+    30_000,
+  );
+});
