@@ -14,6 +14,13 @@ import type {
   ToJalali,
   ToPersianDigits,
 } from "../src/index.js";
+import {
+  createJalaliModule,
+  intlEngine,
+  jalaaliJsEngine,
+  type CalendarEngine,
+  type JalaliEngine,
+} from "../src/methods.js";
 
 const jalali = {} as typeof import("virtual:persian/jalali");
 const text = {} as typeof import("virtual:persian/text");
@@ -35,10 +42,17 @@ const _assertNormalizePersianText: NormalizePersianText = text.normalizePersianT
 const _mainJalali: FormatJalali = main.formatJalali;
 const _mainText: ToPersianDigits = main.toPersianDigits;
 
+// The methods subpath exposes its engine types alongside the engines themselves.
+const _calendar: CalendarEngine = intlEngine;
+const _engineName: JalaliEngine = jalaaliJsEngine.id;
+const _bound = createJalaliModule(intlEngine);
+const _boundFormat: FormatJalali = _bound.formatJalali;
+
 // Unused locals are guarded by `noUnusedLocals`, so keep the file a module
 // and mark the assertions as used to silence the linter.
 void _assertFormatJalali, _assertToJalali, _assertToGregorian, _assertIsLeapJalaliYear,
   _assertGetMonthName, _assertToPersianDigits, _assertToEnglishDigits,
-  _assertNormalizePersianText, _mainJalali, _mainText;
+  _assertNormalizePersianText, _mainJalali, _mainText, _calendar, _engineName,
+  _bound, _boundFormat;
 
 export {};

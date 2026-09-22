@@ -17,4 +17,6 @@ export { createJalaliModule } from "./jalali/index.js";
 export { intlEngine } from "./jalali/engines/intl.js";
 export { jalaaliJsEngine } from "./jalali/engines/jalaali-js.js";
 
+export type { CalendarEngine, JalaliEngine } from "./types.js";
+
 export { normalizePersianText, toEnglishDigits, toPersianDigits } from "./text/index.js";

@@ -4,34 +4,67 @@
   "description": "A lightweight and predictable Vite plugin for Persian (Farsi) projects – Jalali date, Persian digits, and RTL-ready HTML setup",
   "type": "module",
   "license": "MIT",
+  "author": {
+    "name": "unknownman",
+    "url": "https://github.com/unknownman"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unknownman/vite-plugin-persian.git"
+  },
+  "homepage": "https://github.com/unknownman/vite-plugin-persian#readme",
+  "bugs": {
+    "url": "https://github.com/unknownman/vite-plugin-persian/issues"
+  },
   "sideEffects": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./methods": {
-      "types": "./dist/methods.d.ts",
-      "import": "./dist/methods.js",
-      "require": "./dist/methods.cjs"
+      "import": {
+        "types": "./dist/methods.d.ts",
+        "default": "./dist/methods.js"
+      },
+      "require": {
+        "types": "./dist/methods.d.cts",
+        "default": "./dist/methods.cjs"
+      }
     },
     "./react": {
-      "types": "./dist/react/index.d.ts",
-      "import": "./dist/react/index.js",
-      "require": "./dist/react/index.cjs"
+      "import": {
+        "types": "./dist/react/index.d.ts",
+        "default": "./dist/react/index.js"
+      },
+      "require": {
+        "types": "./dist/react/index.d.cts",
+        "default": "./dist/react/index.cjs"
+      }
     },
     "./vue": {
-      "types": "./dist/vue/index.d.ts",
-      "import": "./dist/vue/index.js",
-      "require": "./dist/vue/index.cjs"
+      "import": {
+        "types": "./dist/vue/index.d.ts",
+        "default": "./dist/vue/index.js"
+      },
+      "require": {
+        "types": "./dist/vue/index.d.cts",
+        "default": "./dist/vue/index.cjs"
+      }
     },
     "./virtual": {
       "types": "./virtual.d.ts"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
@@ -44,10 +77,15 @@
     "farsi",
     "jalali",
     "rtl",
+    "react",
+    "vue",
     "typescript"
   ],
   "engines": {
     "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "peerDependencies": {
     "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0",
@@ -63,7 +101,7 @@
     }
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node scripts/sanitize-dist.mjs",
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -75,6 +113,7 @@
     "@types/node": "^22.10.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "jalaali-js": "^2.0.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "tsup": "^8.3.5",
@@ -82,8 +121,5 @@
     "vite": "^6.4.3",
     "vitest": "^5.0.1",
     "vue": "^3.5.43"
-  },
-  "dependencies": {
-    "jalaali-js": "^2.0.1"
   }
 }

@@ -4,12 +4,22 @@ A lightweight and predictable Vite plugin for Persian (Farsi) projects – Jalal
 
 ## Installation
 
+Requires Node.js ≥ 18 and Vite 5, 6, 7, or 8.
+
 ```bash
 npm install vite-plugin-persian
 ```
 
 ```bash
 pnpm add vite-plugin-persian
+```
+
+```bash
+yarn add vite-plugin-persian
+```
+
+```bash
+bun add vite-plugin-persian
 ```
 
 ## Usage
@@ -43,6 +53,10 @@ import { toPersianDigits, normalizePersianText } from "virtual:persian/text";
 - The types are re-exported from `vite-plugin-persian`, so they stay in sync with the runtime implementation.
 
 ## Framework helpers
+
+The core plugin is framework-agnostic. Optional subpath entries are provided
+for React and Vue; `react` (≥ 18) and `vue` (≥ 3) are optional peer
+dependencies and are only needed if you import these subpaths.
 
 ### React
 
