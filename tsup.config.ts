@@ -1,7 +1,12 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/methods.ts"],
+  entry: [
+    "src/index.ts",
+    "src/methods.ts",
+    "src/react/index.ts",
+    "src/vue/index.ts",
+  ],
   format: ["esm", "cjs"],
   dts: true,
   sourcemap: true,
