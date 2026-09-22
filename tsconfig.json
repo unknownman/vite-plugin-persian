@@ -23,6 +23,6 @@
     "outDir": "dist",
     "rootDir": "."
   },
-  "include": ["src", "tests", "tsup.config.ts", "vitest.config.ts"],
+  "include": ["src", "tests", "tsup.config.ts", "vitest.config.ts", "virtual.d.ts"],
   "exclude": ["node_modules", "dist", "examples"]
 }
