@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createJalaliModule, jalaliModule, toDate } from "../src/jalali/index.js";
+import { createJalaliModule, toDate } from "../src/jalali/index.js";
+import { intlEngine } from "../src/jalali/engines/intl.js";
+import { jalaaliJsEngine } from "../src/jalali/engines/jalaali-js.js";
+import { resolveEngine } from "../src/jalali/resolve-engine.js";
 import type { CalendarEngine } from "../src/types.js";
 
-const intl = createJalaliModule("intl");
+const jalaliModule = createJalaliModule(jalaaliJsEngine);
+const intl = createJalaliModule(intlEngine);
 
 describe("toDate", () => {
   it("accepts a Date, string, and number", () => {
@@ -174,7 +178,9 @@ describe("engine switching", () => {
     expect(module.formatJalali(new Date(2024, 2, 20))).toBe("2100/01/01");
   });
 
-  it("throws on an unknown engine identifier", () => {
-    expect(() => createJalaliModule("nope" as never)).toThrow(/Unknown Jalali engine/);
+  it("resolves engine names and throws on unknown identifiers", () => {
+    expect(resolveEngine("jalaali-js").id).toBe("jalaali-js");
+    expect(resolveEngine("intl").id).toBe("intl");
+    expect(() => resolveEngine("nope" as never)).toThrow(/Unknown Jalali engine/);
   });
 });

@@ -1,12 +1,9 @@
-import { intlEngine } from "./engines/intl.js";
-import { jalaaliJsEngine } from "./engines/jalaali-js.js";
 import type {
   CalendarEngine,
   DateInput,
   FormatJalali,
   GetMonthName,
   IsLeapJalaliYear,
-  JalaliEngine,
   JalaliVirtualModule,
   MonthNameLocale,
   ToGregorian,
@@ -54,14 +51,6 @@ const ENGLISH_MONTH_NAMES = [
  * full name is used for `MMM` too.
  */
 const PERSIAN_SHORT_MONTH_NAMES: readonly string[] = PERSIAN_MONTH_NAMES;
-
-/**
- * The engines available by name. Mapped from the `jalali.engine` option.
- */
-const ENGINES: Record<JalaliEngine, CalendarEngine> = {
-  "jalaali-js": jalaaliJsEngine,
-  intl: intlEngine,
-};
 
 /**
  * Turns any supported input into a valid `Date`.
@@ -148,15 +137,14 @@ function formatWithEngine(
 /**
  * Builds the `virtual:persian/jalali` module surface for a specific engine.
  *
- * @param engine Engine name (`"jalaali-js"` default) or a custom
- *   `CalendarEngine` implementation. Passing an engine object directly makes
- *   the module easy to test and extend.
+ * The engine is passed in as an *object*, never resolved by name here: this
+ * keeps the module graph free of any engine registry, so a bundler can drop
+ * every engine except the one actually used (see `resolve-engine.ts`).
+ *
+ * @param engine The `CalendarEngine` to bind the module to.
  */
-export function createJalaliModule(
-  engine: JalaliEngine | CalendarEngine = "jalaali-js",
-): JalaliVirtualModule {
-  const resolved: CalendarEngine =
-    typeof engine === "string" ? resolveEngine(engine) : engine;
+export function createJalaliModule(engine: CalendarEngine): JalaliVirtualModule {
+  const resolved: CalendarEngine = engine;
 
   const toJalali: ToJalali = (input) => resolved.toJalali(toDate(input));
 
@@ -171,19 +159,3 @@ export function createJalaliModule(
 
   return { formatJalali, toJalali, toGregorian, isLeapJalaliYear, getMonthName };
 }
-
-/**
- * Looks up a named engine, throwing on unknown identifiers.
- */
-export function resolveEngine(engine: JalaliEngine): CalendarEngine {
-  const resolved = ENGINES[engine];
-  if (!resolved) {
-    throw new Error(`Unknown Jalali engine: "${String(engine)}".`);
-  }
-  return resolved;
-}
-
-/**
- * The module bound to the default (`jalaali-js`) engine.
- */
-export const jalaliModule: JalaliVirtualModule = createJalaliModule();

@@ -84,9 +84,12 @@ export function persian(options: PersianOptions = {}): Plugin {
     load(id) {
       if (id === `\0${VIRTUAL_JALALI}`) {
         assertEnabled("jalali", "virtual:persian/jalali", resolved);
-        const engine = JSON.stringify(resolved.jalali.engine);
+        // Import the selected engine by name so only its module is loaded;
+        // the other engine never enters the consumer's bundle.
+        const engine = resolved.jalali.engine === "intl" ? "intlEngine" : "jalaaliJsEngine";
         return [
           `import { createJalaliModule } from ${JSON.stringify(METHODS_SPECIFIER)};`,
+          `import { ${engine} } from ${JSON.stringify(METHODS_SPECIFIER)};`,
           `const m = createJalaliModule(${engine});`,
           "export const formatJalali = m.formatJalali;",
           "export const toJalali = m.toJalali;",

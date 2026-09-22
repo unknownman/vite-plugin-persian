@@ -66,15 +66,19 @@ describe("virtual module loading", () => {
   it("serves the jalali module wired to the selected engine", () => {
     const p = harness({ jalali: { engine: "jalaali-js" } });
     const code = p.load("\0virtual:persian/jalali") as string;
-    expect(code).toContain(`createJalaliModule("jalaali-js")`);
+    expect(code).toContain('import { jalaaliJsEngine } from "vite-plugin-persian/methods"');
+    expect(code).toContain("createJalaliModule(jalaaliJsEngine)");
+    expect(code).not.toContain("intlEngine");
     expect(code).toContain("export const toJalali = m.toJalali;");
     expect(code).toContain("export const getMonthName = m.getMonthName;");
   });
 
-  it("honours a custom engine in the served module", () => {
+  it("serves the jalali module with the intl engine when selected", () => {
     const p = harness({ jalali: { engine: "intl" } });
     const code = p.load("\0virtual:persian/jalali") as string;
-    expect(code).toContain(`createJalaliModule("intl")`);
+    expect(code).toContain('import { intlEngine } from "vite-plugin-persian/methods"');
+    expect(code).toContain("createJalaliModule(intlEngine)");
+    expect(code).not.toContain("jalaaliJsEngine");
   });
 
   it("serves the text module", () => {
