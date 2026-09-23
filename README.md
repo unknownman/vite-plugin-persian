@@ -13,7 +13,7 @@ A lightweight, framework-agnostic Vite plugin for Persian (Farsi) projects. It s
 - **Tree-shakeable** — only the engine you pick (`jalaali-js` by default, or `intl`) is bundled; the other is dropped.
 - **Zero runtime dependencies** — `jalaali-js` is compiled directly into the package.
 - **TypeScript-first** — virtual modules ship with types, `react`/`vue` helpers are fully typed.
-- **Optional React & Vue helpers** — no framework code in the core; import `vite-plugin-persian/react` or `/vue` only when you need it.
+- **Optional React, Vue & Svelte helpers** — no framework code in the core; import `vite-plugin-persian/react`, `/vue`, or `/svelte` only when you need it.
 
 ## Installation
 
@@ -33,7 +33,7 @@ yarn add vite-plugin-persian
 bun add vite-plugin-persian
 ```
 
-`react` (≥ 18) and `vue` (≥ 3) are optional peer dependencies — only install them if you use the corresponding helpers.
+`react` (≥ 18), `vue` (≥ 3), and `svelte` (≥ 4) are optional peer dependencies — only install them if you use the corresponding helpers.
 
 ## Quick Start
 
@@ -157,7 +157,7 @@ function EditableInput() {
 }
 ```
 
-The hook results are memoized against the input, so re-renders with the same value return a stable string. `vite-plugin-persian/react` also re-exports `toPersianDigits`, `toEnglishDigits`, and `normalizePersianText`.
+The hook results are memoized against the input, so re-renders with the same value return a stable string. `vite-plugin-persian/react` also re-exports `toPersianDigits`, `toEnglishDigits`, `normalizePersianText`, and the currency utilities (`toToman`, `toRial`, `formatCurrency`).
 
 ## Vue helpers
 
@@ -200,11 +200,43 @@ const price = toPersianDigits(12500); // "۱۲۵۰۰"
 </script>
 ```
 
-Conversion is idempotent, so the directive is safe to run on every patch. `vite-plugin-persian/vue` also re-exports `toPersianDigits`, `toEnglishDigits`, and `normalizePersianText`.
+Conversion is idempotent, so the directive is safe to run on every patch. `vite-plugin-persian/vue` also re-exports `toPersianDigits`, `toEnglishDigits`, `normalizePersianText`, and the currency utilities (`toToman`, `toRial`, `formatCurrency`).
+
+## Svelte helpers
+
+```bash
+npm install svelte                   # required peer dependency
+```
+
+```ts
+import { usePersianDigits, persianDigits } from "vite-plugin-persian/svelte";
+```
+
+```svelte
+<script>
+  export let price; // number
+
+  const priceFa = usePersianDigits(price); // Readable, reactive via the `$` store syntax
+</script>
+
+<!-- action: converts the bound value, and re-converts on updates -->
+<span use:persianDigits={price}>{price}</span>
+
+<!-- action without a value: converts the element's own text once -->
+<span use:persianDigits>12.500</span>
+
+<!-- form controls get their .value converted -->
+<input use:persianDigits bind:value />
+
+<!-- runes- or store-based reactivity -->
+<span>{$priceFa}</span>
+```
+
+`usePersianDigits` and `useEnglishDigits` accept a plain number/string or any `Readable` from `svelte/store` (so they react to changing values). `persianDigits` is a standard Svelte action with `update`/`destroy` lifecycle. `vite-plugin-persian/svelte` also re-exports `toPersianDigits`, `toEnglishDigits`, `normalizePersianText`, and the currency utilities (`toToman`, `toRial`, `formatCurrency`).
 
 ## TypeScript
 
-The plugin, its options, and the React/Vue helpers are typed out of the box. For the **virtual modules**, add one reference in your `src/vite-env.d.ts`:
+The plugin, its options, and the React/Vue/Svelte helpers are typed out of the box. For the **virtual modules**, add one reference in your `src/vite-env.d.ts`:
 
 ```ts
 /// <reference types="vite-plugin-persian/virtual" />

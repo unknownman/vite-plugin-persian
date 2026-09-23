@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { usePersianDigits, vPersianDigits } from "../src/vue/index.js";
+import {
+  formatCurrency,
+  toRial,
+  toToman,
+  usePersianDigits,
+  vPersianDigits,
+} from "../src/vue/index.js";
 
 /** Minimal structural view of the directive's hooks, for use outside Vue. */
 interface DirectiveHooks {
@@ -56,5 +62,13 @@ describe("usePersianDigits composable", () => {
     expect(toPersianDigits(2024)).toBe("۲۰۲۴");
     expect(toEnglishDigits("۲۰۲۴")).toBe("2024");
     expect(normalizePersianText("يك   تست")).toBe("یک تست");
+  });
+});
+
+describe("vue entry re-exports", () => {
+  it("re-exports the currency utilities", () => {
+    expect(toToman("۱۰۰۰۰")).toBe(1000);
+    expect(toRial(1000)).toBe(10000);
+    expect(formatCurrency(12500000)).toBe("۱۲٬۵۰۰٬۰۰۰ تومان");
   });
 });

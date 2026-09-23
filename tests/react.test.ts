@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { useEnglishDigits, usePersianDigits } from "../src/react/index.js";
+import {
+  formatCurrency,
+  toRial,
+  toToman,
+  useEnglishDigits,
+  usePersianDigits,
+} from "../src/react/index.js";
 
 /**
  * The hooks run inside a real rendered component, which also proves they are
@@ -46,5 +52,13 @@ describe("react helpers", () => {
   it("useEnglishDigits converts Persian digits back to English", () => {
     const html = renderToStaticMarkup(createElement(EnglishPrice, { value: "۱۲۵۰۰" }));
     expect(html).toBe("<output>12500</output>");
+  });
+});
+
+describe("react entry re-exports", () => {
+  it("re-exports the currency utilities", () => {
+    expect(toToman("۱۰۰۰۰")).toBe(1000);
+    expect(toRial(1000)).toBe(10000);
+    expect(formatCurrency(12500000)).toBe("۱۲٬۵۰۰٬۰۰۰ تومان");
   });
 });

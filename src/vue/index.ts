@@ -5,7 +5,14 @@ import {
   toPersianDigits,
 } from "../text/index.js";
 
-export { normalizePersianText, toEnglishDigits, toPersianDigits } from "../text/index.js";
+export {
+  formatCurrency,
+  normalizePersianText,
+  toEnglishDigits,
+  toPersianDigits,
+  toRial,
+  toToman,
+} from "../text/index.js";
 
 type EditableElement = HTMLElement & { value: string };
 

@@ -61,6 +61,16 @@
         "default": "./dist/vue/index.cjs"
       }
     },
+    "./svelte": {
+      "import": {
+        "types": "./dist/svelte/index.d.ts",
+        "default": "./dist/svelte/index.js"
+      },
+      "require": {
+        "types": "./dist/svelte/index.d.cts",
+        "default": "./dist/svelte/index.cjs"
+      }
+    },
     "./virtual": {
       "types": "./virtual.d.ts"
     },
@@ -79,6 +89,7 @@
     "rtl",
     "react",
     "vue",
+    "svelte",
     "typescript"
   ],
   "engines": {
@@ -88,12 +99,16 @@
     "access": "public"
   },
   "peerDependencies": {
-    "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0",
     "react": ">=18.0.0",
+    "svelte": ">=4.0.0",
+    "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0",
     "vue": ">=3.0.0"
   },
   "peerDependenciesMeta": {
     "react": {
+      "optional": true
+    },
+    "svelte": {
       "optional": true
     },
     "vue": {
@@ -114,8 +129,10 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "jalaali-js": "^2.0.1",
+    "jsdom": "^26.1.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "svelte": "^5.57.1",
     "tsup": "^8.3.5",
     "typescript": "^5.7.2",
     "vite": "^6.4.3",

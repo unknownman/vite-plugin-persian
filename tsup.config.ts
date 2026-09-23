@@ -6,6 +6,7 @@ export default defineConfig({
     "src/methods.ts",
     "src/react/index.ts",
     "src/vue/index.ts",
+    "src/svelte/index.ts",
   ],
   format: ["esm", "cjs"],
   dts: true,
