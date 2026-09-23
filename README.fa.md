@@ -9,6 +9,8 @@
 ## امکانات
 
 - **آماده‌سازی HTML برای RTL** — به‌صورت خودکار `lang="fa"` و `dir="rtl"` را روی تگ `<html>` می‌گذارد (هر دو قابل تغییر هستند).
+- **تزریق فونت فارسی** (نسخه ۰.۳.۰، اختیاری) — با یک خط تنظیم، فونت فارسی از CDN (jsDelivr) یا از فایل‌های محلی `.woff2`/`.woff` پروژهٔ شما ارائه می‌شود؛ به‌همراه اعمال خودکار `body { font-family }`.
+- **پراپرتی‌های منطقی CSS** (نسخه ۰.۳.۰، اختیاری) — بازنویسی `padding-left`/`margin-right`/`text-align: left` به معادل منطقی (`start`/`end`) تا RTL بدون CSS مخصوص جهت کار کند.
 - **تاریخ جلالی (تقویم شمسی)** — توابع `formatJalali`، `toJalali`، `toGregorian`، `isLeapJalaliYear` و `getMonthName` با نام ماه‌های فارسی یا انگلیسی. به‌همراه هوک‌های فریمورک-محور `useJalaliDate` برای React و Vue و Svelte.
 - **اعداد فارسی** — تبدیل هر دو جهت بین ارقام فارسی/هندی (`۰۱۲۳۴۵۶۷۸۹`) و انگلیسی، به‌همراه نرمال‌سازی متن فارسی.
 - **ابزارهای پول** — توابع `toToman`، `toRial` و `formatCurrency` با ارقام فارسی/انگلیسی و جداکنندهٔ هزارگان.
@@ -86,6 +88,81 @@ export default defineConfig({
   ],
 });
 ```
+
+## فونت فارسی (نسخه ۰.۳.۰، اختیاری)
+
+گزینهٔ `font` یک استایل‌شیت `@font-face` را مستقیماً داخل HTML شما تزریق می‌کند — بدون نوشتن CSS و بدون دانلود دستی فایل فونت. تا زمانی که پیکربندی نکنید، غیرفعال است.
+
+### فونت از CDN
+
+سه فونت فارسی پرطرفدار از پیش ثبت شده و از jsDelivr ارائه می‌شوند (یک تگ `preconnect` هم به‌صورت خودکار اضافه می‌شود):
+
+```ts
+// vite.config.ts
+import { persian } from "vite-plugin-persian";
+
+export default defineConfig({
+  plugins: [
+    persian({
+      font: {
+        family: "Vazirmatn",          // "Vazirmatn" | "Sahel" | "Samim"
+        display: "swap",              // font-display: auto | block | swap | fallback | optional
+        injectToBody: true,           // پیش‌فرض — فونت را روی <body> اعمال می‌کند
+      },
+    }),
+  ],
+});
+```
+
+با `injectToBody: true` (پیش‌فرض) پلاگین این هم خروجی می‌دهد:
+
+```css
+:root { --persian-font-family: "Vazirmatn"; }
+body { font-family: var(--persian-font-family), sans-serif !important; }
+```
+
+تا کل برنامه فوراً با این فونت رندر شود. اگر می‌خواهید خودتان `font-family` را کنترل کنید، `injectToBody: false` بگذارید — در این حالت فقط تزریق `:root`/`body` حذف می‌شود و قواعد `@font-face` همچنان تزریق می‌گردند.
+
+### فونت محلی (Self-hosted)
+
+گزینهٔ `local` را با مسیرهای نسبی به ریشهٔ پروژه پر کنید. فایل‌ها در زمان پیکربندی اعتبارسنجی و به‌صورت خودکار داخل خروجی بیلد (و توسط سرور توسعه) ارائه می‌شوند:
+
+```ts
+persian({
+  font: {
+    family: "IRANSansX",                     // هر نامی — عیناً در font-family استفاده می‌شود
+    local: {
+      woff2: "src/fonts/IRANSansX.woff2",    // الزامی
+      woff: "src/fonts/IRANSansX.woff",      // جایگزین اختیاری
+    },
+  },
+});
+```
+
+نکته‌ها:
+
+- `local` و CDN متقابل هستند — اگر `local` تنظیم شده باشد، هیچ URL از CDN استفاده نمی‌شود (حتی برای `family` از پیش تعریف‌شده مثل `"Vazirmatn"`) و `preconnect` هم اضافه نمی‌شود.
+- فایل‌های موجود نبودن یا خارج از پروژه، به‌صورت fail-fast با خطای شفاف در زمان پیکربندی گزارش می‌شوند.
+- URL خروجی، گزینهٔ `base` مربوط به Vite را رعایت می‌کند.
+
+## پراپرتی‌های منطقی CSS (نسخه ۰.۳.۰، اختیاری)
+
+پراپرتی‌های فیزیکی (`padding-left`، `margin-right`، `left`، `text-align: left`) در RTL جهت اشتباهی را نشان می‌دهند. فلگ آزمایشی `logicalProperties` آن‌ها را در خط لولهٔ CSS به معادل منطقی‌شان بازنویسی می‌کند تا همان استایل‌شیت در هر دو جهت درست جریان یابد:
+
+```ts
+persian({
+  experimental: { logicalProperties: true },
+});
+```
+
+| فیزیکی                                | منطقی                             |
+| ------------------------------------- | --------------------------------- |
+| `padding-left` / `padding-right`      | `padding-inline-start` / `-end`   |
+| `margin-left` / `margin-right`        | `margin-inline-start` / `-end`    |
+| `left` / `right`                      | `inset-inline-start` / `-end`     |
+| `text-align: left` / `right`          | `text-align: start` / `end`       |
+
+مقادیری که از قبل منطقی هستند (`start`، `end`) و هر چیز دیگری بدون تغییر عبور می‌کنند. اعلامیه‌های فونت هرگز دستکاری نمی‌شوند — پلاگین فقط پراپرتی‌های چیدمان/محور inline را بازنویسی می‌کند.
 
 ## ماژول‌های مجازی
 
@@ -365,12 +442,19 @@ import type { PersianOptions, JalaliEngine, CalendarEngine } from "vite-plugin-p
 | `jalali.enabled`  | `boolean`               | `true`         | سرویس‌دهی `virtual:persian/jalali`. غیرفعال‌کردن + ایمپورت = خطا هنگام بیلد. |
 | `jalali.engine`   | `"jalaali-js" \| "intl"`| `"jalaali-js"` | موتور تقویم. `intl` از `Intl.DateTimeFormat` داخلی مرورگر استفاده می‌کند (سبک‌تر اما وابسته به محیط)؛ `jalaali-js` در همه‌جا یکسان و پایدار است. |
 | `text.enabled`    | `boolean`               | `true`         | سرویس‌دهی `virtual:persian/text`.                      |
+| `font.family`     | `string`                | —              | نام فونت. پیش‌فرض‌های `"Vazirmatn" \| "Sahel" \| "Samim"` از jsDelivr بارگذاری می‌شوند؛ هر نام دیگری به `font.local` نیاز دارد. |
+| `font.display`    | `"auto" \| "block" \| "swap" \| "fallback" \| "optional"` | `"swap"` | ویژگی `font-display` برای قواعد `@font-face` تزریق‌شده. |
+| `font.local`      | `{ woff2: string; woff?: string }` | — | مسیر فایل‌های فونت محلی (نسبت به ریشهٔ پروژه). در صورت تنظیم، CDN استفاده نمی‌شود. |
+| `font.injectToBody` | `boolean`             | `true`         | اعمال فونت روی `body` با `:root { --persian-font-family }` + `body { font-family: var(...) !important }`. |
+| `experimental.logicalProperties` | `boolean` | `false`  | بازنویسی پراپرتی‌های فیزیکی (`padding-left`، `margin-right`، `left`/`right`، `text-align: left/right`) به منطقی (`*-inline-start`/`-end`، `start`/`end`). |
 
 ```ts
 persian({
   html: { lang: "fa-IR" },
   jalali: { engine: "intl" },
   text: { enabled: true },
+  font: { family: "Vazirmatn", display: "swap", injectToBody: true },
+  experimental: { logicalProperties: true },
 });
 ```
 
@@ -379,7 +463,7 @@ persian({
 - **بدون تبدیل‌های جادویی.** پلاگین هرگز کدهای شما را بازنویسی یا به‌صورت خودکار تبدیل نمی‌کند. فقط ایمپورت‌های ماژول مجازی و هیپلپرها ارقام را تبدیل می‌کنند — و ویژگی‌های `<html lang/dir>` تنها خروجی خودکار هستند. این رویکرد، رفتار را قابل‌پیش‌بینی و برای tree-shaking امن نگه می‌دارد.
 - **زمان محلی، نه منطقهٔ زمانی.** تبدیل تاریخ بر اساس منطقهٔ زمانی دستگاه در حال اجرا انجام می‌شود.
 - **ملاحظات موتور `intl`.** سال‌های کبیسه و تبدیل‌ها از دادهٔ `Intl`/ICU میزبان استخراج می‌شوند؛ بنابراین نتایج ممکن است در محیط‌های مختلف کمی متفاوت باشند و از `jalaali-js` (جستجوی تکراری) کندتر است. وقتی می‌خواهید تقویم تقریباً بدون سربار داشته باشید از آن استفاده کنید. موتور پیش‌فرض `jalaali-js` قطعی و پایدار است.
-- **یک کتابخانهٔ i18n/استایل نیست.** مقدار `dir="rtl"` را تنظیم می‌کند اما CSS شما را برنمی‌گرداند و متن رابط کاربری را بومی‌سازی نمی‌کند.
+- **یک کتابخانهٔ i18n/استایل نیست.** مقدار `dir="rtl"` را تنظیم می‌کند اما CSS شما را برنمی‌گرداند و متن رابط کاربری را بومی‌سازی نمی‌کند — مگر اینکه `experimental.logicalProperties` را فعال کنید که پراپرتی‌های چیدمان فیزیکی را به منطقی بازنویسی می‌کند (بخش [پراپرتی‌های منطقی CSS](#پراپرتیهای-منطقی-css-نسخه-۰۳۰-اختیاری)).
 - **نیازمند Vite 5 تا 8 است.** این یک پلاگین زمان بیلد است؛ محتوایی که خارج از Vite و به‌صورت دستی در سرور رندر می‌کنید تحت تأثیر قرار نمی‌گیرد.
 
 ## مجوز

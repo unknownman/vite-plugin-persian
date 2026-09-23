@@ -9,6 +9,7 @@ export type {
   TextOptions,
   FontOptions,
   ResolvedFontOptions,
+  FontLocalOptions,
   FontFamily,
   FontDisplay,
   ExperimentalOptions,

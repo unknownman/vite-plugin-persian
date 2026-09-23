@@ -1,8 +1,15 @@
-import type { HtmlTagDescriptor } from "vite";
-import type { FontDisplay, FontFamily, FontOptions, ResolvedFontOptions } from "./types.js";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import type {
+  FontDisplay,
+  FontFamily,
+  FontLocalOptions,
+  FontOptions,
+  ResolvedFontOptions,
+} from "./types.js";
 
-/** CDN origin all font assets are served from (used for `preconnect`). */
-const FONT_CDN_ORIGIN = "https://cdn.jsdelivr.net";
+/** CDN origin all bundled font assets are served from (used for `preconnect`). */
+export const FONT_CDN_ORIGIN = "https://cdn.jsdelivr.net";
 
 /** Base path for the `Vazirmatn` webfonts on jsDelivr. */
 const VAZIRMATN_BASE = "https://cdn.jsdelivr.net/npm/vazirmatn@33.0.3/fonts/webfonts";
@@ -14,7 +21,20 @@ const SAHEL_BASE = "https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v1.0.0-al
 const SAMIM_BASE = "https://cdn.jsdelivr.net/gh/rastikerdar/samim-font@v4.0.5/dist";
 
 /**
- * A single `@font-face` source for one weight of a family.
+ * A single source line for an `@font-face` rule: a file URL plus the format
+ * hint so the browser can pick the best supported source.
+ */
+export interface FontFaceLike {
+  /** CSS `font-weight` the face is registered for. */
+  weight: number;
+  /** Web URL the face points at. */
+  url: string;
+  /** Format hint emitted in the `src` descriptor. */
+  format: "woff2" | "woff";
+}
+
+/**
+ * A single `.woff2`/`.woff` preset face from the built-in CDN registry.
  */
 export interface FontSource {
   /** CSS `font-weight` the face is registered for. */
@@ -24,9 +44,9 @@ export interface FontSource {
 }
 
 /**
- * Everything the plugin needs to inject a font family: its registered name
- * (which is also what consumers write in `font-family`) and the faces that
- * cover the typographically meaningful weight range.
+ * Everything the plugin needs to inject a font family from the CDN: its
+ * registered name (which is also what consumers write in `font-family`) and
+ * the faces that cover the typographically meaningful weight range.
  */
 export interface FontDefinition {
   /** Font-family name used inside `@font-face` (and by consumers). */
@@ -36,13 +56,14 @@ export interface FontDefinition {
 }
 
 /**
- * Registry of the webfont families the plugin can serve, keyed by the
- * `FontFamily` option. Each family resolves to highly available CDN assets so
- * nothing has to be self-hosted and no network access is needed at build time.
+ * Registry of the webfont families the plugin can serve from the CDN, keyed
+ * by the `FontFamily` option. Each family resolves to highly available jsDelivr
+ * assets so nothing has to be self-hosted and no network access is needed at
+ * build time.
  *
- * The injected face list is intentionally small (Regular / Bold + a black
- * weight where available); consumers who need the whole weight spectrum can
- * still load the vendor stylesheet themselves.
+ * The preset face list is intentionally small (Regular / Bold + a black or
+ * medium weight where available); consumers who need the whole weight spectrum
+ * can still load the vendor stylesheet themselves.
  */
 export const FONT_DEFINITIONS: Readonly<Record<FontFamily, FontDefinition>> = {
   Vazirmatn: {
@@ -80,23 +101,29 @@ export const FONT_DISPLAY_VALUES: readonly FontDisplay[] = [
   "optional",
 ];
 
-/**
- * Acceptable values for the `font.family` option, for error messages.
- */
+/** Acceptable CDN preset family names, for error messages. */
 const VALID_FAMILIES = Object.keys(FONT_DEFINITIONS) as FontFamily[];
 
 /**
  * Validates and normalizes user-supplied font options.
  *
- * @throws {Error} when the family or display value is unknown.
+ * - `family` must be a non-empty string.
+ * - Without `local`, `family` must be a known CDN preset.
+ * - `display` defaults to `'swap'` and must be a valid `font-display` value.
+ * - `local` requires a non-empty `woff2`; `woff` is optional.
+ * - `injectToBody` defaults to `true`.
+ *
+ * @throws {Error} when the family / display value is unknown or `local` is
+ *   malformed.
  */
 export function resolveFontOptions(font: FontOptions): ResolvedFontOptions {
-  if (!FONT_DEFINITIONS.hasOwnProperty(font.family)) {
+  if (typeof font.family !== "string" || font.family.trim() === "") {
     throw new Error(
-      `vite-plugin-persian: unknown font family ${JSON.stringify(font.family)}. ` +
-        `Supported families: ${VALID_FAMILIES.join(", ")}.`,
+      "vite-plugin-persian: `font.family` must be a non-empty string.",
     );
   }
+  const family = font.family.trim();
+
   const display = font.display ?? "swap";
   if (!FONT_DISPLAY_VALUES.includes(display)) {
     throw new Error(
@@ -104,52 +131,158 @@ export function resolveFontOptions(font: FontOptions): ResolvedFontOptions {
         `Supported values: ${FONT_DISPLAY_VALUES.join(", ")}.`,
     );
   }
-  return { family: font.family, display };
+
+  const injectToBody = font.injectToBody ?? true;
+
+  if (font.local !== undefined) {
+    if (typeof font.local.woff2 !== "string" || font.local.woff2.trim() === "") {
+      throw new Error(
+        "vite-plugin-persian: `font.local.woff2` is required when using local fonts.",
+      );
+    }
+    const woff = font.local.woff?.trim() || undefined;
+    return {
+      family,
+      display,
+      local: { woff2: font.local.woff2.trim(), ...(woff ? { woff } : {}) },
+      injectToBody,
+    };
+  }
+
+  if (!(family in FONT_DEFINITIONS)) {
+    throw new Error(
+      `vite-plugin-persian: unknown font family ${JSON.stringify(family)}. ` +
+        `Supported CDN families: ${VALID_FAMILIES.join(", ")}. ` +
+        "Provide `font.local` for custom families.",
+    );
+  }
+
+  return { family: family as FontFamily, display, injectToBody };
 }
 
 /**
- * Renders the `@font-face` rules for a resolved font family.
- *
- * `font-display` is emitted directly from the resolved options, and the
- * `local(...)` source lets browsers reuse an already installed copy of the
- * font instead of downloading the webfont.
+ * A local font file resolved against the Vite root, ready to be emitted into
+ * the build and referenced from `@font-face`.
  */
-export function buildFontFaceCss(font: ResolvedFontOptions): string {
-  const definition = FONT_DEFINITIONS[font.family];
-  return definition.faces
-    .map(
-      (face) =>
-        `@font-face {` +
-        `font-family: ${JSON.stringify(definition.family)};` +
-        `font-style: normal;` +
-        `font-weight: ${face.weight};` +
-        `font-display: ${font.display};` +
-        `src: local(${JSON.stringify(definition.family)}), url(${JSON.stringify(face.url)}) format("woff2");` +
-        `}`,
-    )
-    .join("\n");
+export interface ResolvedLocalFontFile {
+  /** POSIX path relative to the root — the public URL suffix. */
+  rel: string;
+  /** Absolute filesystem path. */
+  abs: string;
+  /** Whether this is the `woff2` or the `woff` face. */
+  format: "woff2" | "woff";
 }
 
 /**
- * Builds the HTML tags that activate the font feature: a `preconnect` hint to
- * the CDN plus an inline `<style>` holding the `@font-face` rules. Packaging
- * the faces as inline CSS keeps the output self-contained and CSP-friendly.
+ * Resolves every file in a `FontLocalOptions` against the project root,
+ * throwing a clear error when a file is missing or sits outside the root
+ * (the build can only serve / emit files that stay inside the project).
  */
-export function createFontTags(font: ResolvedFontOptions): HtmlTagDescriptor[] {
-  return [
-    {
-      tag: "link",
-      attrs: {
-        rel: "preconnect",
-        href: FONT_CDN_ORIGIN,
-        crossorigin: "",
-      },
-      injectTo: "head",
-    },
-    {
-      tag: "style",
-      children: buildFontFaceCss(font),
-      injectTo: "head",
-    },
+export function resolveLocalFontFiles(
+  local: FontLocalOptions,
+  root: string,
+): ResolvedLocalFontFile[] {
+  const candidates: Array<{ format: "woff2" | "woff"; entry: string }> = [
+    { format: "woff2", entry: local.woff2 },
+    ...(local.woff !== undefined ? [{ format: "woff" as const, entry: local.woff }] : []),
   ];
+
+  const resolved: ResolvedLocalFontFile[] = [];
+  for (const { format, entry } of candidates) {
+    const abs = path.resolve(root, entry);
+    if (!existsSync(abs)) {
+      throw new Error(
+        `vite-plugin-persian: local font file for \`${format}\` was not found at ${JSON.stringify(abs)}. ` +
+          "Provide a path relative to the project root, or use a CDN family.",
+      );
+    }
+    const rel = path.relative(root, abs);
+    if (rel.startsWith("..") || path.isAbsolute(rel)) {
+      throw new Error(
+        `vite-plugin-persian: local font file must live inside the project root (${JSON.stringify(root)}), ` +
+          `got ${JSON.stringify(abs)}.`,
+      );
+    }
+    resolved.push({ rel: rel.split(path.sep).join("/"), abs, format });
+  }
+  return resolved;
+}
+
+/**
+ * Renders the `@font-face` rules for a family, grouping faces by weight and
+ * listing every source (local + remote URLs) for that weight.
+ */
+export function renderFontFaceCss(
+  family: string,
+  faces: FontFaceLike[],
+  display: FontDisplay,
+): string {
+  const byWeight = new Map<number, FontFaceLike[]>();
+  for (const face of faces) {
+    const group = byWeight.get(face.weight) ?? [];
+    group.push(face);
+    byWeight.set(face.weight, group);
+  }
+
+  const blocks: string[] = [];
+  for (const [weight, group] of byWeight) {
+    const src = [
+      `local(${JSON.stringify(family)})`,
+      ...group.map((face) => `url(${JSON.stringify(face.url)}) format(${JSON.stringify(face.format)})`),
+    ].join(", ");
+    blocks.push(
+      `@font-face { font-family: ${JSON.stringify(family)}; font-style: normal; ` +
+        `font-weight: ${weight}; font-display: ${display}; src: ${src}; }`,
+    );
+  }
+  return blocks.join("\n");
+}
+
+/**
+ * The body micro-injection: announces the font through a CSS custom property
+ * on `:root` and applies it to `body` with a sensible fallback stack, so the
+ * font is used everywhere without the consumer writing any CSS.
+ */
+export function renderBodyFontInlineCss(family: string): string {
+  const quoted = JSON.stringify(family);
+  return [
+    `:root { --persian-font-family: ${quoted}; }`,
+    `body { font-family: var(--persian-font-family), sans-serif !important; }`,
+  ].join("\n");
+}
+
+/**
+ * Context used while rendering the font CSS for a build.
+ */
+export interface FontStyleBuildContext {
+  /** Vite root directory, used to resolve local font paths. */
+  root: string;
+  /** Vite `base` with a trailing slash, prepended to public URLs. */
+  base: string;
+}
+
+/**
+ * Generates the complete inline stylesheet for a resolved font config: the
+ * `@font-face` rules (CDN presets or emitted local assets) plus, when
+ * `injectToBody` is enabled, the `:root`/`body` micro-injection.
+ */
+export function buildFontStyleCss(
+  font: ResolvedFontOptions,
+  cssContext: FontStyleBuildContext,
+): string {
+  const faces: FontFaceLike[] =
+    font.local !== undefined
+      ? resolveLocalFontFiles(font.local, cssContext.root).map((file) => ({
+          weight: 400,
+          url: `${cssContext.base}${file.rel}`,
+          format: file.format,
+        }))
+      : FONT_DEFINITIONS[font.family as FontFamily].faces.map((face) => ({
+          weight: face.weight,
+          url: face.url,
+          format: "woff2",
+        }));
+
+  const faceCss = renderFontFaceCss(font.family, faces, font.display);
+  return font.injectToBody ? `${faceCss}\n${renderBodyFontInlineCss(font.family)}` : faceCss;
 }

@@ -9,6 +9,8 @@ A lightweight, framework-agnostic Vite plugin for Persian (Farsi) projects. It s
 ## Features
 
 - **RTL-ready HTML** — automatically sets `lang="fa"` and `dir="rtl"` on your `<html>` tag (both overridable).
+- **Persian webfont injection** (v0.3.0, opt-in) — one line serves a Persian font from jsDelivr CDN (`Vazirmatn`, `Sahel`, `Samim`) or from your own local `.woff2`/`.woff` files, plus an automatic `body { font-family }` application.
+- **CSS logical properties** (v0.3.0, opt-in) — rewrite physical `padding-left`/`margin-right`/`text-align: left` into their logical (`start`/`end`) equivalents so RTL works without direction-specific CSS.
 - **Jalali (Persian / Solar Hijri) dates** — `formatJalali`, `toJalali`, `toGregorian`, `isLeapJalaliYear`, `getMonthName` with Persian or English month names. Framework-native helpers: `useJalaliDate` for React, Vue, and Svelte.
 - **Persian digits** — convert to/from Persian numerals (`۰۱۲۳۴۵۶۷۸۹`) and normalize Persian text.
 - **Currency utilities** — `toToman`, `toRial`, and `formatCurrency` with Persian/English digits and thousands separators.
@@ -86,6 +88,81 @@ export default defineConfig({
   ],
 });
 ```
+
+## Persian webfont (v0.3.0, opt-in)
+
+The `font` option injects an `@font-face` stylesheet straight into your HTML — no CSS to write, no font file to download by hand. It's disabled unless you configure it.
+
+### CDN preset
+
+Three popular Persian families are pre-registered and served from jsDelivr (a `preconnect` hint is added automatically):
+
+```ts
+// vite.config.ts
+import { persian } from "vite-plugin-persian";
+
+export default defineConfig({
+  plugins: [
+    persian({
+      font: {
+        family: "Vazirmatn",          // "Vazirmatn" | "Sahel" | "Samim"
+        display: "swap",              // font-display: auto | block | swap | fallback | optional
+        injectToBody: true,           // default — applies the font to <body>
+      },
+    }),
+  ],
+});
+```
+
+With `injectToBody: true` (the default) the plugin also emits:
+
+```css
+:root { --persian-font-family: "Vazirmatn"; }
+body { font-family: var(--persian-font-family), sans-serif !important; }
+```
+
+So the whole app renders in the font immediately. Set `injectToBody: false` if you prefer to control `font-family` yourself — the `@font-face` rules are still injected, but the `:root`/`body` micro-injection is skipped entirely.
+
+### Custom local font (self-hosted)
+
+Provide `local` with paths relative to your project root. The files are validated at config time and emitted into the build output (and served by the dev server) automatically:
+
+```ts
+persian({
+  font: {
+    family: "IRANSansX",                     // any name — used verbatim in font-family
+    local: {
+      woff2: "src/fonts/IRANSansX.woff2",    // required
+      woff: "src/fonts/IRANSansX.woff",      // optional fallback
+    },
+  },
+});
+```
+
+Notes:
+
+- `local` and CDN are mutually exclusive — if `local` is set, CDN URLs are never referenced (even for a preset `family` like `"Vazirmatn"`), and no `preconnect` is added.
+- Missing or out-of-project files fail fast with a clear error at config time.
+- The emitted URL respects Vite's `base` option.
+
+## CSS logical properties (v0.3.0, opt-in)
+
+Physical properties (`padding-left`, `margin-right`, `left`, `text-align: left`) point the wrong way in RTL. The experimental `logicalProperties` flag rewrites them to their logical equivalents during the CSS pipeline, so the same stylesheet flows correctly in both directions:
+
+```ts
+persian({
+  experimental: { logicalProperties: true },
+});
+```
+
+| Physical                              | Logical                          |
+| ------------------------------------- | -------------------------------- |
+| `padding-left` / `padding-right`      | `padding-inline-start` / `-end`  |
+| `margin-left` / `margin-right`        | `margin-inline-start` / `-end`   |
+| `left` / `right`                      | `inset-inline-start` / `-end`    |
+| `text-align: left` / `right`          | `text-align: start` / `end`      |
+
+Values that are already logical (`start`, `end`) and everything else pass through untouched. Font declarations are never affected — the plugin only rewrites layout/inline-axis properties.
 
 ## Virtual modules
 
@@ -365,12 +442,19 @@ import type { PersianOptions, JalaliEngine, CalendarEngine } from "vite-plugin-p
 | `jalali.enabled`  | `boolean`               | `true`        | Serve `virtual:persian/jalali`. Disabling + importing throws at build time. |
 | `jalali.engine`   | `"jalaali-js" \| "intl"`| `"jalaali-js"`| Calendar engine. `intl` uses native `Intl.DateTimeFormat` (smaller, environment-dependent); `jalaali-js` is consistent everywhere. |
 | `text.enabled`    | `boolean`               | `true`        | Serve `virtual:persian/text`.                          |
+| `font.family`     | `string`                | —             | Font-family name. Presets `"Vazirmatn" \| "Sahel" \| "Samim"` load from jsDelivr; any other name requires `font.local`. |
+| `font.display`    | `"auto" \| "block" \| "swap" \| "fallback" \| "optional"` | `"swap"` | `font-display` descriptor for the injected `@font-face` rules. |
+| `font.local`      | `{ woff2: string; woff?: string }` | — | Self-hosted font paths (relative to project root). When set, CDN sourcing is disabled. |
+| `font.injectToBody` | `boolean`             | `true`        | Apply the font to `body` via `:root { --persian-font-family }` + `body { font-family: var(...) !important }`. |
+| `experimental.logicalProperties` | `boolean` | `false`  | Rewrite physical CSS properties (`padding-left`, `margin-right`, `left`/`right`, `text-align: left/right`) into logical ones (`*-inline-start`/`-end`, `start`/`end`). |
 
 ```ts
 persian({
   html: { lang: "fa-IR" },
   jalali: { engine: "intl" },
   text: { enabled: true },
+  font: { family: "Vazirmatn", display: "swap", injectToBody: true },
+  experimental: { logicalProperties: true },
 });
 ```
 
@@ -379,7 +463,7 @@ persian({
 - **No magic transforms.** The plugin never rewrites your components or auto-converts code. Only the virtual-module imports and helpers convert digits — and the `<html lang/dir>` attributes are the only automatic output. This keeps behavior predictable and bundle-safe for tree-shaking.
 - **Local time, not timezones.** Date conversion uses the local timezone of the running machine.
 - **`intl` engine caveats.** It derives leap years and conversions from the host's `Intl`/ICU data, so results can vary slightly across environments and it is slower than `jalaali-js` (iterative search). Use it when you want a ~zero-footprint calendar. The default `jalaali-js` engine is deterministic.
-- **Not an i18n/styling library.** It sets `dir="rtl"`, but does not flip your CSS or localize UI strings.
+- **Not an i18n/styling library.** It sets `dir="rtl"`, but does not flip your CSS or localize UI strings — unless you opt into `experimental.logicalProperties`, which rewrites physical layout properties to logical ones (see [CSS logical properties](#css-logical-properties-v030-opt-in)).
 - **Requires Vite 5–8.** It is a build-time plugin; content you hand-render on a server outside Vite is unaffected.
 
 ## License

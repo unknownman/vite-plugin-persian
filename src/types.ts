@@ -280,11 +280,11 @@ export interface TextOptions {
 }
 
 /**
- * Persian webfont families the plugin can inject automatically.
+ * Persian webfont families the plugin can inject automatically from the CDN.
  *
- * Only the families shipped by well-maintained open-source Persian font
- * projects are supported; each one is served from the jsDelivr CDN, so there
- * is nothing to self-host and no build-time network access is required.
+ * These are the built-in preset families served from the jsDelivr CDN — think
+ * of them as convenient shortcuts. Any other font name works too, provided a
+ * {@link FontLocalOptions.local} configuration is supplied.
  */
 export type FontFamily = "Vazirmatn" | "Sahel" | "Samim";
 
@@ -301,24 +301,65 @@ export type FontFamily = "Vazirmatn" | "Sahel" | "Samim";
 export type FontDisplay = "auto" | "block" | "swap" | "fallback" | "optional";
 
 /**
+ * Local (self-hosted) webfont source configuration. Paths are resolved
+ * relative to the Vite `root` (typically the project directory) and must stay
+ * inside it — the build emits the files to the matching output location so
+ * the same URL works in dev and in production.
+ */
+export interface FontLocalOptions {
+  /** Path (relative to the project root) of the `.woff2` font file. */
+  woff2: string;
+  /** Optional `.woff` fallback path for legacy browsers. */
+  woff?: string;
+}
+
+/**
  * User-facing options for {@link PersianOptions.font} (v0.3.0).
+ *
+ * The plugin supports two mutually exclusive sourcing modes:
+ *
+ * - **CDN preset** — `family` is one of `"Vazirmatn" | "Sahel" | "Samim"`;
+ *   `@font-face` rules are generated pointing at jsDelivr assets.
+ * - **Custom local font** — provide `local`; then `family` may be any name
+ *   and the plugin emits your `.woff2`/`.woff` files into the build while
+ *   generating `@font-face` rules for them. When both `local` and a preset
+ *   name are given, `local` wins (the preset's CDN URLs are ignored).
  */
 export interface FontOptions {
   /**
-   * Persian webfont family to inject `@font-face` rules for.
+   * Font-family name. Either a built-in CDN preset (`"Vazirmatn"`,
+   * `"Sahel"`, `"Samim"`) or any custom name when `local` is configured.
    */
-  family: FontFamily;
+  family: string;
   /**
    * `font-display` descriptor for the injected `@font-face` rules.
    * @default 'swap'
    */
   display?: FontDisplay;
+  /** Self-hosted font files. When set, CDN sourcing is disabled. */
+  local?: FontLocalOptions;
+  /**
+   * Apply the family to the body automatically via a CSS custom property:
+   * `:root { --persian-font-family: '<family>' }` +
+   * `body { font-family: var(--persian-font-family), sans-serif !important }`.
+   * @default true
+   */
+  injectToBody?: boolean;
 }
 
 /**
  * Config fully resolved from {@link FontOptions} — every field is present.
  */
-export type ResolvedFontOptions = Required<FontOptions>;
+export type ResolvedFontOptions = {
+  /** Font-family name (trimmed; may be a custom name with `local`). */
+  family: string;
+  /** `font-display` descriptor. */
+  display: FontDisplay;
+  /** Custom local sources (present only when configured). */
+  local?: FontLocalOptions;
+  /** Whether the body `font-family` micro-injection is active. */
+  injectToBody: boolean;
+};
 
 /**
  * Opt-in, explicitly experimental features (v0.3.0). Nothing here affects the

@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { describe, expect, it, vi } from "vitest";
 import { persian, resolveOptions } from "../src/index.js";
 import type { Plugin, UserConfig } from "vite";
 
@@ -8,11 +11,24 @@ interface PluginUnderTest {
   load: (id: string) => unknown;
   transformIndexHtml: (html: string) => unknown;
   config: (config: UserConfig) => unknown;
+  configResolved: (config: { root: string; base: string }) => unknown;
+  buildStart: () => unknown;
 }
 
 function harness(options = {}): PluginUnderTest {
   return persian(options) as Plugin &
     PluginUnderTest;
+}
+
+/** Creates a temp project root containing the given font files. */
+function makeFontRoot(files: Record<string, string>): string {
+  const root = mkdtempSync(path.join(tmpdir(), "vpp-plugin-fonts-"));
+  for (const [rel, content] of Object.entries(files)) {
+    const abs = path.join(root, rel);
+    mkdirSync(path.dirname(abs), { recursive: true });
+    writeFileSync(abs, content);
+  }
+  return root;
 }
 
 describe("persian()", () => {
@@ -54,20 +70,34 @@ describe("resolveOptions", () => {
 });
 
 describe("font options", () => {
-  it("resolves a configured font with the swap display default", () => {
+  it("resolves a CDN family with swap display and body injection defaults", () => {
     const resolved = resolveOptions({ font: { family: "Vazirmatn" } });
-    expect(resolved.font).toEqual({ family: "Vazirmatn", display: "swap" });
+    expect(resolved.font).toEqual({ family: "Vazirmatn", display: "swap", injectToBody: true });
   });
 
-  it("honors an explicit display value", () => {
-    const resolved = resolveOptions({ font: { family: "Sahel", display: "optional" } });
-    expect(resolved.font).toEqual({ family: "Sahel", display: "optional" });
+  it("honors an explicit display and injectToBody", () => {
+    const resolved = resolveOptions({
+      font: { family: "Sahel", display: "optional", injectToBody: false },
+    });
+    expect(resolved.font).toEqual({
+      family: "Sahel",
+      display: "optional",
+      injectToBody: false,
+    });
   });
 
-  it("throws on an unknown font family", () => {
+  it("throws on a custom family without local configuration", () => {
     expect(() => resolveOptions({ font: { family: "NotAFont" as never } })).toThrow(
-      /unknown font family .*\. Supported families: Vazirmatn, Sahel, Samim/,
+      /unknown font family "NotAFont"\..*Supported CDN families: Vazirmatn, Sahel, Samim/,
     );
+  });
+
+  it("accepts custom families with local fonts", () => {
+    const resolved = resolveOptions({
+      font: { family: "IRANSansX", local: { woff2: "src/fonts/x.woff2" } },
+    });
+    expect(resolved.font?.family).toBe("IRANSansX");
+    expect(resolved.font?.local).toEqual({ woff2: "src/fonts/x.woff2" });
   });
 
   it("throws on an unknown display value", () => {
@@ -198,6 +228,22 @@ describe("transformIndexHtml", () => {
     expect(style?.children).toContain('font-family: "Vazirmatn"');
     expect(style?.children).toContain("font-display: swap");
     expect(style?.children).toContain("format(\"woff2\")");
+    // Body micro-injection is enabled by default.
+    expect(style?.children).toContain("--persian-font-family: \"Vazirmatn\"");
+    expect(style?.children).toContain("body {");
+  });
+
+  it("omits the body micro-injection and keeps these rules when injectToBody is false", () => {
+    const p = harness({ font: { family: "Vazirmatn", injectToBody: false } });
+    const result = p.transformIndexHtml("<html>") as {
+      tags: Array<{ tag: string; attrs?: Record<string, string | boolean>; children?: string }>;
+    };
+    const style = result.tags.find((t) => t.tag === "style");
+    expect(style?.children).not.toContain("--persian-font-family");
+    expect(style?.children).not.toContain("body {");
+    expect(style?.children).toContain("@font-face");
+    // Still a CDN preset: preconnect stays.
+    expect(result.tags.find((t) => t.tag === "link")).toBeTruthy();
   });
 
   it("uses the requested font-display value", () => {
@@ -207,6 +253,74 @@ describe("transformIndexHtml", () => {
     };
     const style = result.tags.find((t) => "children" in t);
     expect(style?.children).toContain("font-display: block");
+  });
+});
+
+describe("local font assets", () => {
+  it("emits local font files into the build via emitFile after configResolved", () => {
+    const root = makeFontRoot({ "fonts/x.woff2": "fontdata", "fonts/x.woff": "fontdata" });
+    const p = harness({ font: { family: "IRANSansX", local: { woff2: "fonts/x.woff2", woff: "fonts/x.woff" } } });
+
+    p.configResolved({ root, base: "/" });
+
+    const emitFile = vi.fn(() => "assets/fonts/x.woff2");
+    p.buildStart.call({ emitFile });
+
+    expect(emitFile).toHaveBeenCalledTimes(2);
+    expect(emitFile).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "asset", fileName: "fonts/x.woff2" }),
+    );
+    expect(emitFile).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "asset", fileName: "fonts/x.woff" }),
+    );
+  });
+
+  it("emits local font assets no more than once per build", () => {
+    const root = makeFontRoot({ "fonts/x.woff2": "fontdata" });
+    const p = harness({
+      font: { family: "IRANSansX", local: { woff2: "fonts/x.woff2" } },
+    });
+    p.configResolved({ root, base: "/" });
+
+    const emitFile = vi.fn();
+    p.buildStart.call({ emitFile });
+    p.buildStart.call({ emitFile });
+
+    expect(emitFile).toHaveBeenCalledTimes(1);
+  });
+
+  it("builds a same-origin @font-face with no preconnect for local fonts", () => {
+    const root = makeFontRoot({ "fonts/x.woff2": "fontdata" });
+    const p = harness({ font: { family: "IRANSansX", local: { woff2: "fonts/x.woff2" } } });
+    p.configResolved({ root, base: "/assets/" });
+
+    const result = p.transformIndexHtml("<html>") as {
+      tags: Array<{ tag: string; attrs?: Record<string, string | boolean>; children?: string }>;
+    };
+    const style = result.tags.find((t) => t.tag === "style");
+    expect(style?.children).toContain('font-family: "IRANSansX"');
+    expect(style?.children).toContain('url("/assets/fonts/x.woff2") format("woff2")');
+    expect(style?.children).not.toContain("cdn.jsdelivr.net");
+
+    const preconnect = result.tags.find((t) => t.tag === "link");
+    expect(preconnect).toBeUndefined();
+  });
+
+  it("fails fast in configResolved for a missing local font file", () => {
+    const root = makeFontRoot({});
+    const p = harness({
+      font: { family: "IRANSansX", local: { woff2: "missing.woff2" } },
+    });
+    expect(() => p.configResolved({ root, base: "/" })).toThrow(
+      /local font file for `woff2` was not found/,
+    );
+  });
+
+  it("skips emission entirely when no local font is configured", () => {
+    const p = harness({ font: { family: "Vazirmatn" } });
+    const emitFile = vi.fn();
+    p.buildStart.call({ emitFile });
+    expect(emitFile).not.toHaveBeenCalled();
   });
 });
 

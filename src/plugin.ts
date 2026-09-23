@@ -1,6 +1,12 @@
-import type { Plugin, UserConfig } from "vite";
+import { readFileSync } from "node:fs";
+import type { HtmlTagDescriptor, Plugin, UserConfig } from "vite";
 import { logicalPropertiesPostCss } from "./css/logical-properties.js";
-import { resolveFontOptions, createFontTags } from "./fonts.js";
+import {
+  FONT_CDN_ORIGIN,
+  buildFontStyleCss,
+  resolveFontOptions,
+  resolveLocalFontFiles,
+} from "./fonts.js";
 import { createHtmlTransformer } from "./html.js";
 import type { PersianOptions, ResolvedPersianOptions } from "./types.js";
 
@@ -65,7 +71,9 @@ export function resolveOptions(options: PersianOptions = {}): ResolvedPersianOpt
  *
  * - Injects/updates `lang` and `dir` on the `<html>` tag.
  * - Optionally injects `@font-face` rules for a Persian webfont (`font`.
- *   v0.3.0).
+ *   v0.3.0). CDN presets reference jsDelivr assets; custom `local` fonts are
+ *   emitted into the build output via `emitFile` and served by the dev server
+ *   under the same relative URL.
  * - Optionally rewrites CSS to logical properties (`experimental.
  *   logicalProperties`, v0.3.0) via an injected PostCSS plugin.
  * - Serves the `virtual:persian`, `virtual:persian/jalali`, and
@@ -79,8 +87,49 @@ export function persian(options: PersianOptions = {}): Plugin {
   const resolved = resolveOptions(options);
   const htmlTransform = createHtmlTransformer(resolved.html);
 
+  // Resolved from Vite's config; local default lets the plugin function even
+  // when hooks are exercised directly (tests) before configResolved runs.
+  let root = process.cwd();
+  let base = "/";
+
+  // Local font assets are emitted once per build; this set dedupes emission
+  // across environments (client + SSR) which may both call buildStart.
+  const emitted = new Set<string>();
+
   return {
     name: "vite-plugin-persian",
+
+    configResolved(config) {
+      root = config.root;
+      base = withTrailingSlash(config.base ?? "/");
+      if (resolved.font?.local !== undefined) {
+        // Fail fast with a clear message when a local font is misconfigured.
+        resolveLocalFontFiles(resolved.font.local, root);
+      }
+    },
+
+    buildStart() {
+      const font = resolved.font;
+      if (font?.local === undefined) {
+        return;
+      }
+      const emit = this as unknown as {
+        emitFile(options: { type: "asset"; fileName: string; source: Uint8Array }): string;
+      };
+      for (const file of resolveLocalFontFiles(font.local, root)) {
+        if (emitted.has(file.rel)) {
+          continue;
+        }
+        emitted.add(file.rel);
+        // Static `fileName` keeps the emitted path identical to the public URL
+        // (base + relative-from-root), matching what the dev server serves.
+        emit.emitFile({
+          type: "asset",
+          fileName: file.rel,
+          source: readFileSync(file.abs),
+        });
+      }
+    },
 
     resolveId(source) {
       // Idempotent: a source that is already the canonical `\0`-prefixed id.
@@ -133,14 +182,32 @@ export function persian(options: PersianOptions = {}): Plugin {
       return null;
     },
 
-    transformIndexHtml(html) {
+    transformIndexHtml(html, _ctx) {
       const transformed = htmlTransform(html);
       if (resolved.font === undefined) {
         return transformed;
       }
-      // When font injection is enabled, keep the lang/dir result and append
-      // the @font-face tags; Vite's default renderer merges them into <head>.
-      return { html: transformed, tags: createFontTags(resolved.font) };
+      // CDN presets get a preconnect hint; local fonts are same-origin, so no
+      // preconnect is needed. The inline <style> carries the @font-face rules
+      // (and the body/`:root` micro-injection when injectToBody is default).
+      const tags: HtmlTagDescriptor[] = [];
+      if (resolved.font.local === undefined) {
+        tags.push({
+          tag: "link",
+          attrs: {
+            rel: "preconnect",
+            href: FONT_CDN_ORIGIN,
+            crossorigin: "",
+          },
+          injectTo: "head",
+        });
+      }
+      tags.push({
+        tag: "style",
+        children: buildFontStyleCss(resolved.font, { root, base }),
+        injectTo: "head",
+      });
+      return { html: transformed, tags };
     },
 
     config(_config) {
@@ -178,4 +245,12 @@ function assertEnabled(
         `Enable it by setting the "${feature}.enabled" option to \`true\`, or remove the import.`,
     );
   }
+}
+
+/**
+ * Normalizes the Vite `base` option so it always ends with a slash, which
+ * keeps the local-font public URL join (`base + relative path`) predictable.
+ */
+function withTrailingSlash(value: string): string {
+  return value.endsWith("/") ? value : `${value}/`;
 }
