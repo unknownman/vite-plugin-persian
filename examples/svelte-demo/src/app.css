@@ -1,0 +1,96 @@
+:root {
+  color-scheme: light dark;
+  font-family: "Segoe UI", system-ui, Tahoma, Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+h1 {
+  margin-bottom: 0.25rem;
+}
+
+.tagline {
+  color: #94a3b8;
+  margin-top: 0;
+}
+
+.card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
+
+.card h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+  color: #7dd3fc;
+}
+
+input {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0.25rem 0 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid #475569;
+  background: #0f172a;
+  color: inherit;
+  font: inherit;
+}
+
+ul {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+  line-height: 1.9;
+}
+
+label {
+  display: grid;
+  grid-template-columns: 4rem 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.ok {
+  color: #4ade80;
+}
+
+.bad {
+  color: #f87171;
+}
+
+.words {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: #fbbf24;
+}
+
+.big {
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 0.5rem 0;
+}
+
+.time {
+  font-size: 1.25rem;
+  color: #94a3b8;
+}
+
+code {
+  background: #0f172a;
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+}

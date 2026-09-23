@@ -1,0 +1,21 @@
+{
+  "name": "vite-plugin-persian-vue-demo",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "verify:nodenext": "tsc -p tsconfig.nodenext.json"
+  },
+  "dependencies": {
+    "vite-plugin-persian": "file:../..",
+    "vue": "^3.5.43"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^7.0.0"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "vite-plugin-persian-svelte-demo",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "verify:nodenext": "tsc -p tsconfig.nodenext.json"
+  },
+  "dependencies": {
+    "svelte": "^5.57.0",
+    "vite-plugin-persian": "file:../.."
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^6.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^7.0.0"
+  }
+}
