@@ -1,8 +1,10 @@
 import postcss from "postcss";
 import { describe, expect, it } from "vitest";
 import {
+  IGNORE_MARKER,
   INLINE_AXIS_MAP,
   TEXT_ALIGN_INLINE,
+  createLogicalPropertiesPostCss,
   logicalPropertiesPostCss,
 } from "../src/css/logical-properties.js";
 
@@ -115,5 +117,106 @@ describe("selectors and at-rules pass through", () => {
     expect(out).toContain("@supports (display: grid)");
     expect(out).toContain(".margin-left-custom");
     expect(out).toContain("color: red");
+  });
+});
+
+describe("@persian-ignore magic comment", () => {
+  it("exposes the marker constant", () => {
+    expect(IGNORE_MARKER).toBe("@persian-ignore");
+  });
+
+  it("leaves a rule marked above untouched and rewrites siblings", () => {
+    const css = `
+      /* @persian-ignore */
+      .legacy-fixed-sidebar {
+        margin-left: 20px;
+        padding-right: 4px;
+      }
+      .modern {
+        margin-left: 30px;
+      }
+    `;
+    const out = logicalize(css);
+    expect(out).toContain("margin-left: 20px");
+    expect(out).toContain("padding-right: 4px");
+    expect(out).not.toContain("margin-inline-start: 20px");
+    expect(out).toContain("margin-inline-start: 30px");
+  });
+
+  it("skips a single declaration marked inline", () => {
+    const css = `.a { /* @persian-ignore */ margin-right: 1rem; padding-left: 2rem; }`;
+    const out = logicalize(css);
+    expect(out).toContain("margin-right: 1rem");
+    expect(out).toContain("padding-inline-start: 2rem");
+    expect(out).not.toContain("margin-inline-end: 1rem");
+  });
+
+  it("skips the entire file when the marker is the first token and guards no rule", () => {
+    const css = `
+      /* @persian-ignore */
+      /* vendored third-party stylesheet */
+      .a { margin-left: 1px; }
+      .b { padding-right: 2px; }
+    `;
+    const out = logicalize(css);
+    expect(out).toContain("margin-left: 1px");
+    expect(out).toContain("padding-right: 2px");
+    expect(out).not.toContain("margin-inline");
+    expect(out).not.toContain("padding-inline");
+  });
+
+  it("scopes a top-of-file marker to its guarded first rule only", () => {
+    const css = `
+      /* @persian-ignore */
+      .legacy { margin-left: 3px; }
+      .modern { padding-right: 4px; }
+    `;
+    const out = logicalize(css);
+    expect(out).toContain("margin-left: 3px");
+    expect(out).toContain("padding-inline-end: 4px");
+  });
+
+  it("does not affect rules whose preceding comment has no marker", () => {
+    const css = `/* keep */\n.a { margin-left: 1px; }`;
+    const out = logicalize(css);
+    expect(out).toContain("margin-inline-start: 1px");
+  });
+});
+
+describe("ignore selector configuration", () => {
+  it("bypasses rules whose selector matches the ignore list", () => {
+    const plugin = createLogicalPropertiesPostCss({
+      ignoreSelectors: [".legacy-fixed-sidebar"],
+    });
+    const out = postcss([plugin])
+      .process(
+        `
+        .legacy-fixed-sidebar { margin-left: 20px; }
+        .modern { margin-right: 20px; }
+        `,
+        { from: undefined },
+      )
+      .css;
+    expect(out).toContain("margin-left: 20px");
+    expect(out).toContain("margin-inline-end: 20px");
+  });
+
+  it("supports RegExp patterns across a comma-separated selector list", () => {
+    const plugin = createLogicalPropertiesPostCss({ ignoreSelectors: [/^\.island-/] });
+    const out = postcss([plugin])
+      .process(
+        ".island-legacy, .modern { padding-right: 5px; } .other { margin-right: 7px; }",
+        { from: undefined },
+      )
+      .css;
+    expect(out).toContain("padding-right: 5px");
+    expect(out).toContain("margin-inline-end: 7px");
+  });
+
+  it("default-instance rewrites everything (no exclusions)", () => {
+    const out = postcss([logicalPropertiesPostCss])
+      .process(".a { margin-left: 1px; }", { from: undefined })
+      .css;
+    expect(out).toContain("margin-inline-start: 1px");
   });
 });

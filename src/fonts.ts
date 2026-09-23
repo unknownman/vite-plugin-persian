@@ -112,6 +112,7 @@ const VALID_FAMILIES = Object.keys(FONT_DEFINITIONS) as FontFamily[];
  * - `display` defaults to `'swap'` and must be a valid `font-display` value.
  * - `local` requires a non-empty `woff2`; `woff` is optional.
  * - `injectToBody` defaults to `true`.
+ * - `preload` defaults to `false` (local `.woff2` preload links).
  *
  * @throws {Error} when the family / display value is unknown or `local` is
  *   malformed.
@@ -133,6 +134,7 @@ export function resolveFontOptions(font: FontOptions): ResolvedFontOptions {
   }
 
   const injectToBody = font.injectToBody ?? true;
+  const preload = font.preload ?? false;
 
   if (font.local !== undefined) {
     if (typeof font.local.woff2 !== "string" || font.local.woff2.trim() === "") {
@@ -146,6 +148,7 @@ export function resolveFontOptions(font: FontOptions): ResolvedFontOptions {
       display,
       local: { woff2: font.local.woff2.trim(), ...(woff ? { woff } : {}) },
       injectToBody,
+      preload,
     };
   }
 
@@ -157,7 +160,7 @@ export function resolveFontOptions(font: FontOptions): ResolvedFontOptions {
     );
   }
 
-  return { family: family as FontFamily, display, injectToBody };
+  return { family: family as FontFamily, display, injectToBody, preload };
 }
 
 /**
@@ -242,11 +245,18 @@ export function renderFontFaceCss(
  * The body micro-injection: announces the font through a CSS custom property
  * on `:root` and applies it to `body` with a sensible fallback stack, so the
  * font is used everywhere without the consumer writing any CSS.
+ *
+ * Two variables are defined:
+ *
+ * - `--persian-font-family` – the bare family name (v0.3.0, kept as-is).
+ * - `--font-persian` – the family plus a fallback stack, matching Tailwind's
+ *   `--font-*` theme convention so consumers can extend their `fontFamily`
+ *   theme with `persian: "var(--font-persian)"` (v0.3.1).
  */
 export function renderBodyFontInlineCss(family: string): string {
   const quoted = JSON.stringify(family);
   return [
-    `:root { --persian-font-family: ${quoted}; }`,
+    `:root { --persian-font-family: ${quoted}; --font-persian: ${quoted}, sans-serif; }`,
     `body { font-family: var(--persian-font-family), sans-serif !important; }`,
   ].join("\n");
 }
@@ -259,6 +269,25 @@ export interface FontStyleBuildContext {
   root: string;
   /** Vite `base` with a trailing slash, prepended to public URLs. */
   base: string;
+}
+
+/**
+ * Resolves the public URLs that should be `rel="preload"`-ed for a local
+ * font when `preload` is enabled: the same `base + relative` URL the
+ * `@font-face` rule points at, restricted to the `.woff2` format (the format
+ * preload actually benefits from). Returns `[]` for CDN presets and when
+ * preloading is off.
+ */
+export function resolvePreloadUrls(
+  font: ResolvedFontOptions,
+  cssContext: FontStyleBuildContext,
+): string[] {
+  if (!font.preload || font.local === undefined) {
+    return [];
+  }
+  return resolveLocalFontFiles(font.local, cssContext.root)
+    .filter((file) => file.format === "woff2")
+    .map((file) => `${cssContext.base}${file.rel}`);
 }
 
 /**

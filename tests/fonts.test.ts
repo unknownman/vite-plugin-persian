@@ -10,6 +10,7 @@ import {
   renderFontFaceCss,
   resolveFontOptions,
   resolveLocalFontFiles,
+  resolvePreloadUrls,
 } from "../src/fonts.js";
 
 /** Creates a temp project root containing the given font files. */
@@ -40,18 +41,29 @@ describe("FONT_DEFINITIONS", () => {
 });
 
 describe("resolveFontOptions", () => {
-  it("defaults display to swap and injectToBody to true for CDN families", () => {
+  it("defaults display, injectToBody, and preload for CDN families", () => {
     expect(resolveFontOptions({ family: "Vazirmatn" })).toEqual({
       family: "Vazirmatn",
       display: "swap",
       injectToBody: true,
+      preload: false,
     });
   });
 
-  it("honors explicit display and injectToBody", () => {
+  it("honors explicit display, injectToBody, and preload", () => {
     expect(
-      resolveFontOptions({ family: "Sahel", display: "optional", injectToBody: false }),
-    ).toEqual({ family: "Sahel", display: "optional", injectToBody: false });
+      resolveFontOptions({
+        family: "Sahel",
+        display: "optional",
+        injectToBody: false,
+        preload: true,
+      }),
+    ).toEqual({
+      family: "Sahel",
+      display: "optional",
+      injectToBody: false,
+      preload: true,
+    });
   });
 
   it("allows custom family names when local is configured", () => {
@@ -62,6 +74,7 @@ describe("resolveFontOptions", () => {
       display: "swap",
       local: { woff2: "fonts/f.woff2" },
       injectToBody: true,
+      preload: false,
     });
   });
 
@@ -73,7 +86,18 @@ describe("resolveFontOptions", () => {
       display: "swap",
       local: { woff2: "a.woff2" },
       injectToBody: true,
+      preload: false,
     });
+  });
+
+  it("keeps preload alongside local configuration", () => {
+    const resolved = resolveFontOptions({
+      family: "MyFont",
+      local: { woff2: "a.woff2" },
+      preload: true,
+    });
+    expect(resolved.preload).toBe(true);
+    expect(resolved.local).toEqual({ woff2: "a.woff2" });
   });
 
   it("keeps a provided woff fallback", () => {
@@ -171,12 +195,47 @@ describe("renderFontFaceCss", () => {
 });
 
 describe("renderBodyFontInlineCss", () => {
-  it("applies the family via a CSS variable and !important fallback", () => {
+  it("applies the family via CSS variables and !important fallback", () => {
     const css = renderBodyFontInlineCss("Vazirmatn");
-    expect(css).toContain(":root { --persian-font-family: \"Vazirmatn\"; }");
+    expect(css).toContain(
+      ':root { --persian-font-family: "Vazirmatn"; --font-persian: "Vazirmatn", sans-serif; }',
+    );
     expect(css).toContain(
       "body { font-family: var(--persian-font-family), sans-serif !important; }",
     );
+  });
+
+  it("exports a Tailwind-compatible --font-persian variable", () => {
+    const css = renderBodyFontInlineCss("Sahel");
+    expect(css).toContain('--font-persian: "Sahel", sans-serif');
+  });
+});
+
+describe("resolvePreloadUrls", () => {
+  const ctx = { root: "/app", base: "/" };
+
+  it("returns nothing for CDN presets and when preload is off", () => {
+    expect(resolvePreloadUrls(resolveFontOptions({ family: "Vazirmatn" }), ctx)).toEqual([]);
+    expect(
+      resolvePreloadUrls(
+        resolveFontOptions({ family: "X", local: { woff2: "fonts/a.woff2" } }),
+        ctx,
+      ),
+    ).toEqual([]);
+  });
+
+  it("returns the local woff2 public URLs when preload is enabled", () => {
+    const root = makeRoot({ "fonts/a.woff2": "x", "fonts/a.woff": "y" });
+    expect(
+      resolvePreloadUrls(
+        resolveFontOptions({
+          family: "X",
+          local: { woff2: "fonts/a.woff2", woff: "fonts/a.woff" },
+          preload: true,
+        }),
+        { root, base: "/assets/" },
+      ),
+    ).toEqual(["/assets/fonts/a.woff2"]);
   });
 });
 

@@ -89,7 +89,7 @@ export default defineConfig({
 });
 ```
 
-## Persian webfont (v0.3.0, opt-in)
+## Persian webfont (v0.3.0, opt-in; `preload` in v0.3.1)
 
 The `font` option injects an `@font-face` stylesheet straight into your HTML — no CSS to write, no font file to download by hand. It's disabled unless you configure it.
 
@@ -117,11 +117,33 @@ export default defineConfig({
 With `injectToBody: true` (the default) the plugin also emits:
 
 ```css
-:root { --persian-font-family: "Vazirmatn"; }
+:root {
+  --persian-font-family: "Vazirmatn";
+  --font-persian: "Vazirmatn", sans-serif; /* v0.3.1 */
+}
 body { font-family: var(--persian-font-family), sans-serif !important; }
 ```
 
 So the whole app renders in the font immediately. Set `injectToBody: false` if you prefer to control `font-family` yourself — the `@font-face` rules are still injected, but the `:root`/`body` micro-injection is skipped entirely.
+
+In addition to `--persian-font-family`, v0.3.1 defines **`--font-persian`** — the family plus its fallback stack — which follows Tailwind's `--font-*` theme naming convention. Map it into your Tailwind config and use the utility everywhere:
+
+```ts
+// tailwind.config.ts
+export default {
+  theme: {
+    extend: {
+      fontFamily: {
+        persian: "var(--font-persian)",
+      },
+    },
+  },
+};
+```
+
+```tsx
+<div className="font-persian">متن فارسی</div>
+```
 
 ### Custom local font (self-hosted)
 
@@ -135,6 +157,7 @@ persian({
       woff2: "src/fonts/IRANSansX.woff2",    // required
       woff: "src/fonts/IRANSansX.woff",      // optional fallback
     },
+    preload: true,                           // v0.3.1 — preload the local .woff2 early
   },
 });
 ```
@@ -144,6 +167,7 @@ Notes:
 - `local` and CDN are mutually exclusive — if `local` is set, CDN URLs are never referenced (even for a preset `family` like `"Vazirmatn"`), and no `preconnect` is added.
 - Missing or out-of-project files fail fast with a clear error at config time.
 - The emitted URL respects Vite's `base` option.
+- `preload: true` (v0.3.1) injects `<link rel="preload" as="font" type="font/woff2" crossorigin>` for every local `.woff2` so the browser starts fetching it before CSS is applied — reducing FOUT. Only self-hosted fonts are preloaded; CDN presets never are.
 
 ## CSS logical properties (v0.3.0, opt-in)
 
@@ -163,6 +187,31 @@ persian({
 | `text-align: left` / `right`          | `text-align: start` / `end`      |
 
 Values that are already logical (`start`, `end`) and everything else pass through untouched. Font declarations are never affected — the plugin only rewrites layout/inline-axis properties.
+
+### Exclusions (v0.3.1)
+
+Legacy widgets and third-party components sometimes *need* physical properties. Opt them out either through the `ignore` selector list (strings match one selector exactly; RegExps are tested against each selector in a rule's selector list):
+
+```ts
+persian({
+  experimental: {
+    logicalProperties: {
+      ignore: [".legacy-fixed-sidebar", /^\.island-/], // strings and RegExps
+    },
+  },
+});
+```
+
+…or with a `/* @persian-ignore */` comment placed directly above the rule:
+
+```css
+/* @persian-ignore */
+.legacy-fixed-sidebar {
+  margin-left: 20px; /* will NOT be converted to margin-inline-start */
+}
+```
+
+The same comment works immediately before a single declaration, and as the very first token of a file it disables transformation for the whole file (unless it directly guards the file's first rule).
 
 ## Virtual modules
 
@@ -446,7 +495,8 @@ import type { PersianOptions, JalaliEngine, CalendarEngine } from "vite-plugin-p
 | `font.display`    | `"auto" \| "block" \| "swap" \| "fallback" \| "optional"` | `"swap"` | `font-display` descriptor for the injected `@font-face` rules. |
 | `font.local`      | `{ woff2: string; woff?: string }` | — | Self-hosted font paths (relative to project root). When set, CDN sourcing is disabled. |
 | `font.injectToBody` | `boolean`             | `true`        | Apply the font to `body` via `:root { --persian-font-family }` + `body { font-family: var(...) !important }`. |
-| `experimental.logicalProperties` | `boolean` | `false`  | Rewrite physical CSS properties (`padding-left`, `margin-right`, `left`/`right`, `text-align: left/right`) into logical ones (`*-inline-start`/`-end`, `start`/`end`). |
+| `font.preload` | `boolean` | `false` | Emit `<link rel="preload" as="font" type="font/woff2" crossorigin>` for each local `.woff2` (v0.3.1). Local fonts only; CDN presets are never preloaded. |
+| `experimental.logicalProperties` | `boolean \| { ignore?: (string \| RegExp)[] }` | `false` | Rewrite physical CSS properties (`padding-left`, `margin-right`, `left`/`right`, `text-align: left/right`) into logical ones (`*-inline-start`/`-end`, `start`/`end`). Bypass per rule via `@persian-ignore` comments or the `ignore` selector list (v0.3.1). |
 
 ```ts
 persian({
@@ -454,7 +504,7 @@ persian({
   jalali: { engine: "intl" },
   text: { enabled: true },
   font: { family: "Vazirmatn", display: "swap", injectToBody: true },
-  experimental: { logicalProperties: true },
+  experimental: { logicalProperties: { ignore: [".legacy-fixed-sidebar"] } },
 });
 ```
 

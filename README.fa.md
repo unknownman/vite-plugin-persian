@@ -89,7 +89,7 @@ export default defineConfig({
 });
 ```
 
-## فونت فارسی (نسخه ۰.۳.۰، اختیاری)
+## فونت فارسی (نسخه ۰.۳.۰، اختیاری؛ `preload` در ۰.۳.۱)
 
 گزینهٔ `font` یک استایل‌شیت `@font-face` را مستقیماً داخل HTML شما تزریق می‌کند — بدون نوشتن CSS و بدون دانلود دستی فایل فونت. تا زمانی که پیکربندی نکنید، غیرفعال است.
 
@@ -117,11 +117,33 @@ export default defineConfig({
 با `injectToBody: true` (پیش‌فرض) پلاگین این هم خروجی می‌دهد:
 
 ```css
-:root { --persian-font-family: "Vazirmatn"; }
+:root {
+  --persian-font-family: "Vazirmatn";
+  --font-persian: "Vazirmatn", sans-serif; /* نسخه ۰.۳.۱ */
+}
 body { font-family: var(--persian-font-family), sans-serif !important; }
 ```
 
 تا کل برنامه فوراً با این فونت رندر شود. اگر می‌خواهید خودتان `font-family` را کنترل کنید، `injectToBody: false` بگذارید — در این حالت فقط تزریق `:root`/`body` حذف می‌شود و قواعد `@font-face` همچنان تزریق می‌گردند.
+
+علاوه بر `--persian-font-family`، نسخهٔ ۰.۳.۱ متغیر **`--font-persian`** را هم تعریف می‌کند — نام فونت به‌همراه پشتهٔ جایگزین — که با قرارداد نام‌گذاری `--font-*` در Tailwind هماهنگ است. آن را در کانفیگ Tailwind نگاشت کنید:
+
+```ts
+// tailwind.config.ts
+export default {
+  theme: {
+    extend: {
+      fontFamily: {
+        persian: "var(--font-persian)",
+      },
+    },
+  },
+};
+```
+
+```tsx
+<div className="font-persian">متن فارسی</div>
+```
 
 ### فونت محلی (Self-hosted)
 
@@ -135,6 +157,7 @@ persian({
       woff2: "src/fonts/IRANSansX.woff2",    // الزامی
       woff: "src/fonts/IRANSansX.woff",      // جایگزین اختیاری
     },
+    preload: true,                           // نسخه ۰.۳.۱ — پیش‌بارگذاری زودهنگام woff2 محلی
   },
 });
 ```
@@ -144,6 +167,7 @@ persian({
 - `local` و CDN متقابل هستند — اگر `local` تنظیم شده باشد، هیچ URL از CDN استفاده نمی‌شود (حتی برای `family` از پیش تعریف‌شده مثل `"Vazirmatn"`) و `preconnect` هم اضافه نمی‌شود.
 - فایل‌های موجود نبودن یا خارج از پروژه، به‌صورت fail-fast با خطای شفاف در زمان پیکربندی گزارش می‌شوند.
 - URL خروجی، گزینهٔ `base` مربوط به Vite را رعایت می‌کند.
+- `preload: true` (نسخهٔ ۰.۳.۱) تگ `<link rel="preload" as="font" type="font/woff2" crossorigin>` را برای هر `.woff2` محلی تزریق می‌کند تا مرورگر پیش از اعمال CSS آن را دریافت کند (کاهش FOUT). فقط فونت‌های self-hosted پیش‌بارگذاری می‌شوند؛ پیش‌فرض‌های CDN هرگز.
 
 ## پراپرتی‌های منطقی CSS (نسخه ۰.۳.۰، اختیاری)
 
@@ -163,6 +187,31 @@ persian({
 | `text-align: left` / `right`          | `text-align: start` / `end`       |
 
 مقادیری که از قبل منطقی هستند (`start`، `end`) و هر چیز دیگری بدون تغییر عبور می‌کنند. اعلامیه‌های فونت هرگز دستکاری نمی‌شوند — پلاگین فقط پراپرتی‌های چیدمان/محور inline را بازنویسی می‌کند.
+
+### استثناها (نسخه ۰.۳.۱)
+
+ویجت‌های قدیمی یا کامپوننت‌های شخص ثالث گاهی واقعاً به پراپرتی‌های فیزیکی نیاز دارند. می‌توانید آن‌ها را یا از طریق لیست انتخابگر `ignore` کنار بگذارید (رشته‌ها دقیقاً با یک انتخابگر برابر می‌شوند و RegExpها روی تک‌تک انتخابگرها آزمایش می‌شوند):
+
+```ts
+persian({
+  experimental: {
+    logicalProperties: {
+      ignore: [".legacy-fixed-sidebar", /^\.island-/], // رشته و RegExp
+    },
+  },
+});
+```
+
+…یا با کامنت `/* @persian-ignore */` دقیقاً بالای همان قاعده:
+
+```css
+/* @persian-ignore */
+.legacy-fixed-sidebar {
+  margin-left: 20px; /* به margin-inline-start تبدیل نخواهد شد */
+}
+```
+
+همین کامنت بلافاصله قبل از یک اعلامیه هم کار می‌کند، و به‌عنوان اولین نشانهٔ یک فایل، تبدیل کل فایل را غیرفعال می‌کند (مگر اینکه مستقیماً از قاعدهٔ اول فایل محافظت کند).
 
 ## ماژول‌های مجازی
 
@@ -446,7 +495,8 @@ import type { PersianOptions, JalaliEngine, CalendarEngine } from "vite-plugin-p
 | `font.display`    | `"auto" \| "block" \| "swap" \| "fallback" \| "optional"` | `"swap"` | ویژگی `font-display` برای قواعد `@font-face` تزریق‌شده. |
 | `font.local`      | `{ woff2: string; woff?: string }` | — | مسیر فایل‌های فونت محلی (نسبت به ریشهٔ پروژه). در صورت تنظیم، CDN استفاده نمی‌شود. |
 | `font.injectToBody` | `boolean`             | `true`         | اعمال فونت روی `body` با `:root { --persian-font-family }` + `body { font-family: var(...) !important }`. |
-| `experimental.logicalProperties` | `boolean` | `false`  | بازنویسی پراپرتی‌های فیزیکی (`padding-left`، `margin-right`، `left`/`right`، `text-align: left/right`) به منطقی (`*-inline-start`/`-end`، `start`/`end`). |
+| `font.preload` | `boolean` | `false` | انتشار `<link rel="preload" as="font" type="font/woff2" crossorigin>` برای هر `.woff2` محلی (نسخهٔ ۰.۳.۱). فقط فونت‌های محلی؛ پیش‌فرض‌های CDN هرگز پیش‌بارگذاری نمی‌شوند. |
+| `experimental.logicalProperties` | `boolean \| { ignore?: (string \| RegExp)[] }` | `false` | بازنویسی پراپرتی‌های فیزیکی (`padding-left`، `margin-right`، `left`/`right`، `text-align: left/right`) به منطقی (`*-inline-start`/`-end`، `start`/`end`). حذف به‌ازای قاعده با کامنت `@persian-ignore` یا لیست انتخابگر `ignore` (نسخهٔ ۰.۳.۱). |
 
 ```ts
 persian({
@@ -454,7 +504,7 @@ persian({
   jalali: { engine: "intl" },
   text: { enabled: true },
   font: { family: "Vazirmatn", display: "swap", injectToBody: true },
-  experimental: { logicalProperties: true },
+  experimental: { logicalProperties: { ignore: [".legacy-fixed-sidebar"] } },
 });
 ```
 

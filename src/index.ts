@@ -13,6 +13,7 @@ export type {
   FontFamily,
   FontDisplay,
   ExperimentalOptions,
+  LogicalPropertiesOptions,
   JalaliEngine,
   CalendarEngine,
   JalaliDate,

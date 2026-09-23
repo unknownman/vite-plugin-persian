@@ -314,7 +314,8 @@ export interface FontLocalOptions {
 }
 
 /**
- * User-facing options for {@link PersianOptions.font} (v0.3.0).
+ * User-facing options for {@link PersianOptions.font} (v0.3.0; `preload`
+ * added in v0.3.1).
  *
  * The plugin supports two mutually exclusive sourcing modes:
  *
@@ -345,6 +346,17 @@ export interface FontOptions {
    * @default true
    */
   injectToBody?: boolean;
+  /**
+   * Emit `<link rel="preload" as="font" type="font/woff2" crossorigin>` tags
+   * into the HTML head for every self-hosted `.woff2` file, so the browser
+   * starts fetching the font as early as possible and FOUT is minimized.
+   *
+   * Only meaningful for `local` fonts (same-origin assets); ignored for CDN
+   * presets. When the local font also ships a `.woff` fallback, only the
+   * `.woff2` is preloaded.
+   * @default false
+   */
+  preload?: boolean;
 }
 
 /**
@@ -359,11 +371,13 @@ export type ResolvedFontOptions = {
   local?: FontLocalOptions;
   /** Whether the body `font-family` micro-injection is active. */
   injectToBody: boolean;
+  /** Whether `<link rel="preload">` tags are emitted for local `.woff2`. */
+  preload: boolean;
 };
 
 /**
- * Opt-in, explicitly experimental features (v0.3.0). Nothing here affects the
- * default behavior; each flag must be turned on to change the build output.
+ * Opt-in, explicitly experimental features. Nothing here affects the default
+ * behavior; each flag must be turned on to change the build output.
  */
 export interface ExperimentalOptions {
   /**
@@ -376,9 +390,31 @@ export interface ExperimentalOptions {
    * it applies to `.css` files and to `<style>` blocks alike. When disabled
    * (the default) no PostCSS plugin is added and nothing is rewritten.
    *
+   * Accepts a bare `true` to enable with default behavior, or a
+   * {@link LogicalPropertiesOptions} object to also configure exclusions.
+   *
    * @default false
    */
-  logicalProperties?: boolean;
+  logicalProperties?: boolean | LogicalPropertiesOptions;
+}
+
+/**
+ * Refinements for the {@link ExperimentalOptions.logicalProperties}
+ * transformer.
+ *
+ * Rules can also be excluded in the stylesheet itself by placing a
+ * comment containing `@persian-ignore` immediately above a rule (or a single
+ * declaration). Placing it as the very first token of a file skips the whole
+ * file unless it directly guards the file's first rule.
+ */
+export interface LogicalPropertiesOptions {
+  /**
+   * Selectors that must bypass the transformation. Strings match a single
+   * selector exactly (e.g. `.legacy-fixed-sidebar`); RegExps are tested
+   * against each selector in a rule's selector list. Useful for leaving
+   * third-party components untouched.
+   */
+  ignore?: Array<string | RegExp>;
 }
 
 /**

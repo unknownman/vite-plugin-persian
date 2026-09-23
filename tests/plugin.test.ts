@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import postcss from "postcss";
 import { describe, expect, it, vi } from "vitest";
 import { persian, resolveOptions } from "../src/index.js";
 import type { Plugin, UserConfig } from "vite";
@@ -67,22 +68,37 @@ describe("resolveOptions", () => {
       logicalProperties: true,
     });
   });
+
+  it("resolves an experimental logicalProperties ignore config", () => {
+    const resolved = resolveOptions({
+      experimental: { logicalProperties: { ignore: [".legacy-fixed-sidebar"] } },
+    });
+    expect(resolved.experimental).toEqual({
+      logicalProperties: { ignore: [".legacy-fixed-sidebar"] },
+    });
+  });
 });
 
 describe("font options", () => {
   it("resolves a CDN family with swap display and body injection defaults", () => {
     const resolved = resolveOptions({ font: { family: "Vazirmatn" } });
-    expect(resolved.font).toEqual({ family: "Vazirmatn", display: "swap", injectToBody: true });
+    expect(resolved.font).toEqual({
+      family: "Vazirmatn",
+      display: "swap",
+      injectToBody: true,
+      preload: false,
+    });
   });
 
-  it("honors an explicit display and injectToBody", () => {
+  it("honors an explicit display, injectToBody, and preload", () => {
     const resolved = resolveOptions({
-      font: { family: "Sahel", display: "optional", injectToBody: false },
+      font: { family: "Sahel", display: "optional", injectToBody: false, preload: true },
     });
     expect(resolved.font).toEqual({
       family: "Sahel",
       display: "optional",
       injectToBody: false,
+      preload: true,
     });
   });
 
@@ -306,6 +322,55 @@ describe("local font assets", () => {
     expect(preconnect).toBeUndefined();
   });
 
+  it("injects a same-origin preload link for local woff2 when preload is enabled", () => {
+    const root = makeFontRoot({ "fonts/x.woff2": "fontdata", "fonts/x.woff": "fontdata" });
+    const p = harness({
+      font: {
+        family: "IRANSansX",
+        local: { woff2: "fonts/x.woff2", woff: "fonts/x.woff" },
+        preload: true,
+      },
+    });
+    p.configResolved({ root, base: "/assets/" });
+
+    const result = p.transformIndexHtml("<html>") as {
+      tags: Array<{ tag: string; attrs?: Record<string, string | boolean>; children?: string }>;
+    };
+    const preloads = result.tags.filter((t) => t.tag === "link" && t.attrs?.rel === "preload");
+    expect(preloads).toHaveLength(1);
+    expect(preloads[0]?.attrs).toMatchObject({
+      rel: "preload",
+      as: "font",
+      type: "font/woff2",
+      href: "/assets/fonts/x.woff2",
+      crossorigin: "",
+    });
+    // No CDN preconnect for same-origin assets.
+    expect(result.tags.some((t) => t.attrs?.rel === "preconnect")).toBe(false);
+  });
+
+  it("does not preload local fonts by default", () => {
+    const root = makeFontRoot({ "fonts/x.woff2": "fontdata" });
+    const p = harness({ font: { family: "IRANSansX", local: { woff2: "fonts/x.woff2" } } });
+    p.configResolved({ root, base: "/" });
+
+    const result = p.transformIndexHtml("<html>") as {
+      tags: Array<{ tag: string; attrs?: Record<string, string | boolean> }>;
+    };
+    expect(result.tags.some((t) => t.tag === "link" && t.attrs?.rel === "preload")).toBe(false);
+  });
+
+  it("never preloads CDN preset fonts, even with the flag set", () => {
+    const p = harness({ font: { family: "Vazirmatn", preload: true } });
+    const result = p.transformIndexHtml("<html>") as {
+      tags: Array<{ tag: string; attrs?: Record<string, string | boolean> }>;
+    };
+    expect(result.tags.some((t) => t.tag === "link" && t.attrs?.rel === "preload")).toBe(false);
+    // The CDN preconnect hint must still be present.
+    const preconnect = result.tags.filter((t) => t.tag === "link" && t.attrs?.rel === "preconnect");
+    expect(preconnect).toHaveLength(1);
+  });
+
   it("fails fast in configResolved for a missing local font file", () => {
     const root = makeFontRoot({});
     const p = harness({
@@ -340,5 +405,35 @@ describe("config hook (CSS logical properties)", () => {
     expect(p.config({})).toBeUndefined();
     const p2 = harness({ experimental: { logicalProperties: false } });
     expect(p2.config({})).toBeUndefined();
+  });
+
+  it("forwards ignore selectors to the PostCSS transformer", async () => {
+    const p = harness({
+      experimental: { logicalProperties: { ignore: [".legacy-fixed-sidebar"] } },
+    });
+    const returned = p.config({}) as UserConfig;
+    const plugins = (returned.css?.postcss as { plugins?: unknown[] } | undefined)?.plugins ?? [];
+    expect(plugins).toHaveLength(1);
+    expect(plugins[0]).toMatchObject({
+      postcssPlugin: "vite-plugin-persian:logical-properties",
+    });
+
+    const out = await postcss([plugins[0] as never]).process(
+      ".legacy-fixed-sidebar { margin-left: 20px; } .modern { padding-right: 12px; }",
+      { from: undefined },
+    );
+    expect(out.css).toContain("margin-left: 20px");
+    expect(out.css).toContain("padding-inline-end: 12px");
+  });
+
+  it("keeps a bare true toggle fully backward compatible", async () => {
+    const p = harness({ experimental: { logicalProperties: true } });
+    const returned = p.config({}) as UserConfig;
+    const plugins = (returned.css?.postcss as { plugins?: unknown[] } | undefined)?.plugins ?? [];
+    const out = await postcss([plugins[0] as never]).process(
+      ".modern { margin-right: 12px; }",
+      { from: undefined },
+    );
+    expect(out.css).toContain("margin-inline-end: 12px");
   });
 });

@@ -1,11 +1,12 @@
 import { readFileSync } from "node:fs";
 import type { HtmlTagDescriptor, Plugin, UserConfig } from "vite";
-import { logicalPropertiesPostCss } from "./css/logical-properties.js";
+import { createLogicalPropertiesPostCss } from "./css/logical-properties.js";
 import {
   FONT_CDN_ORIGIN,
   buildFontStyleCss,
   resolveFontOptions,
   resolveLocalFontFiles,
+  resolvePreloadUrls,
 } from "./fonts.js";
 import { createHtmlTransformer } from "./html.js";
 import type { PersianOptions, ResolvedPersianOptions } from "./types.js";
@@ -42,7 +43,9 @@ const METHODS_SPECIFIER = "vite-plugin-persian/methods";
  * - `jalali.engine`  → `'jalaali-js'`
  * - `text.enabled`   → `true`
  * - `font`           → resolved only when configured (v0.3.0)
- * - `experimental.logicalProperties` → `false` (v0.3.0)
+ * - `font.preload`   → `false` (v0.3.1)
+ * - `experimental.logicalProperties` → `false` (v0.3.0; accepts an ignore
+ *   config in v0.3.1)
  */
 export function resolveOptions(options: PersianOptions = {}): ResolvedPersianOptions {
   const font = options.font === undefined ? undefined : resolveFontOptions(options.font);
@@ -73,9 +76,13 @@ export function resolveOptions(options: PersianOptions = {}): ResolvedPersianOpt
  * - Optionally injects `@font-face` rules for a Persian webfont (`font`.
  *   v0.3.0). CDN presets reference jsDelivr assets; custom `local` fonts are
  *   emitted into the build output via `emitFile` and served by the dev server
- *   under the same relative URL.
+ *   under the same relative URL. `font.preload` (v0.3.1) additionally emits
+ *   `<link rel="preload" as="font" type="font/woff2">` hints for local
+ *   `.woff2` files to cut FOUT.
  * - Optionally rewrites CSS to logical properties (`experimental.
- *   logicalProperties`, v0.3.0) via an injected PostCSS plugin.
+ *   logicalProperties`, v0.3.0) via an injected PostCSS plugin; v0.3.1 adds
+ *   `@persian-ignore` comment markers and an `ignore` selector list to
+ *   exclude rules.
  * - Serves the `virtual:persian`, `virtual:persian/jalali`, and
  *   `virtual:persian/text` modules.
  *
@@ -201,6 +208,22 @@ export function persian(options: PersianOptions = {}): Plugin {
           },
           injectTo: "head",
         });
+      } else if (resolved.font.preload) {
+        // Self-hosted fonts can be warmed up before CSS applies them, which
+        // minimizes FOUT: preload each local `.woff2` with matching hrefs.
+        for (const href of resolvePreloadUrls(resolved.font, { root, base })) {
+          tags.push({
+            tag: "link",
+            attrs: {
+              rel: "preload",
+              as: "font",
+              type: "font/woff2",
+              href,
+              crossorigin: "",
+            },
+            injectTo: "head",
+          });
+        }
       }
       tags.push({
         tag: "style",
@@ -213,14 +236,20 @@ export function persian(options: PersianOptions = {}): Plugin {
     config(_config) {
       // Opt-in CSS logical-properties rewrite: inject the PostCSS plugin into
       // Vite's CSS pipeline. Nothing is added unless the flag is enabled, so
-      // the default (v0.1.x / v0.2.0) behavior is untouched.
-      if (!resolved.experimental.logicalProperties) {
+      // the default (v0.1.x / v0.2.0) behavior is untouched. When configured
+      // with an options object, exclusions (ignore selectors) are forwarded.
+      const logical = resolved.experimental.logicalProperties;
+      if (!logical) {
         return undefined;
       }
       const config: UserConfig = {
         css: {
           postcss: {
-            plugins: [logicalPropertiesPostCss],
+            plugins: [
+              createLogicalPropertiesPostCss(
+                logical === true ? undefined : { ignoreSelectors: logical.ignore ?? [] },
+              ),
+            ],
           },
         },
       };
