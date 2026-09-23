@@ -3,10 +3,17 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   formatCurrency,
+  isMobileNumber,
+  isNationalCode,
+  normalizeMobileNumber,
+  toNumberWords,
   toRial,
   toToman,
   useEnglishDigits,
   useJalaliDate,
+  useMobileNumber,
+  useNationalCode,
+  useNumberWords,
   usePersianDigits,
 } from "../src/react/index.js";
 
@@ -34,6 +41,26 @@ function JalaliDate({
   format?: string;
 }) {
   return createElement("output", { "data-date": useJalaliDate(date, format) }, null);
+}
+
+function NationalCodeCheck({ code }: { code: string }) {
+  return createElement(
+    "output",
+    { "data-valid": useNationalCode(code) ? "yes" : "no" },
+    null,
+  );
+}
+
+function MobileCheck({ phone }: { phone: string }) {
+  return createElement(
+    "output",
+    { "data-valid": useMobileNumber(phone) ? "yes" : "no" },
+    null,
+  );
+}
+
+function AmountWords({ value }: { value: number | string }) {
+  return createElement("output", { "data-words": useNumberWords(value) }, null);
 }
 
 describe("react helpers", () => {
@@ -140,6 +167,74 @@ describe("useJalaliDate", () => {
     expect(invalid).toBe('<output data-date=""></output>');
     expect(nullish).toBe('<output data-date=""></output>');
     expect(garbage).toBe('<output data-date=""></output>');
+  });
+});
+
+describe("useNationalCode", () => {
+  it("validates a national code and updates when it changes", () => {
+    const results: string[] = [];
+    function Collector({ code }: { code: string }) {
+      results.push(useNationalCode(code) ? "valid" : "invalid");
+      return createElement("span");
+    }
+    renderToStaticMarkup(createElement(Collector, { code: "0010042911" }));
+    renderToStaticMarkup(createElement(Collector, { code: "1234567890" }));
+    renderToStaticMarkup(createElement(Collector, { code: "00100429111" }));
+    expect(results).toEqual(["valid", "invalid", "invalid"]);
+  });
+
+  it("renders through a component", () => {
+    const html = renderToStaticMarkup(createElement(NationalCodeCheck, { code: "0010042911" }));
+    expect(html).toBe('<output data-valid="yes"></output>');
+  });
+});
+
+describe("useMobileNumber", () => {
+  it("checks valid and invalid numbers", () => {
+    const valid = renderToStaticMarkup(createElement(MobileCheck, { phone: "+98 912 345 6789" }));
+    const invalid = renderToStaticMarkup(createElement(MobileCheck, { phone: "0912" }));
+    expect(valid).toBe('<output data-valid="yes"></output>');
+    expect(invalid).toBe('<output data-valid="no"></output>');
+  });
+
+  it("updates when the phone changes", () => {
+    const results: string[] = [];
+    function Collector({ phone }: { phone: string }) {
+      results.push(useMobileNumber(phone) ? "yes" : "no");
+      return createElement("span");
+    }
+    renderToStaticMarkup(createElement(Collector, { phone: "00989123456789" }));
+    renderToStaticMarkup(createElement(Collector, { phone: "9123456789" }));
+    renderToStaticMarkup(createElement(Collector, { phone: "09500000000" }));
+    expect(results).toEqual(["yes", "yes", "no"]);
+  });
+});
+
+describe("useNumberWords", () => {
+  it("spells out a number and updates when it changes", () => {
+    const results: string[] = [];
+    function Collector({ value }: { value: number | string }) {
+      results.push(useNumberWords(value));
+      return createElement("span");
+    }
+    renderToStaticMarkup(createElement(Collector, { value: 0 }));
+    renderToStaticMarkup(createElement(Collector, { value: 12500 }));
+    renderToStaticMarkup(createElement(Collector, { value: -7 }));
+    expect(results).toEqual(["صفر", "دوازده هزار و پانصد", "منفی هفت"]);
+  });
+
+  it("renders through a component", () => {
+    const html = renderToStaticMarkup(createElement(AmountWords, { value: 125000000 }));
+    expect(html).toBe('<output data-words="صد و بیست و پنج میلیون"></output>');
+  });
+});
+
+describe("react utility re-exports", () => {
+  it("re-exports the pure text utilities", () => {
+    expect(isNationalCode("0010042911")).toBe(true);
+    expect(isMobileNumber("09123456789")).toBe(true);
+    expect(normalizeMobileNumber("+989123456789")).toBe("09123456789");
+    expect(toNumberWords(21)).toBe("بیست و یک");
   });
 });
 

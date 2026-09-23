@@ -3,12 +3,19 @@ import { expect, describe, it } from "vitest";
 import { get, readable, writable } from "svelte/store";
 import {
   formatCurrency,
+  isMobileNumber,
+  isNationalCode,
+  normalizeMobileNumber,
   persianDigits,
+  toNumberWords,
   toPersianDigits,
   toRial,
   toToman,
   useEnglishDigits,
   useJalaliDate,
+  useMobileNumber,
+  useNationalCode,
+  useNumberWords,
   usePersianDigits,
 } from "../src/svelte/index.js";
 
@@ -214,6 +221,55 @@ describe("useJalaliDate", () => {
   });
 });
 
+describe("useNationalCode", () => {
+  it("validates a plain value", () => {
+    expect(get(useNationalCode("0010042911"))).toBe(true);
+    expect(get(useNationalCode("1234567890"))).toBe(false);
+  });
+
+  it("reacts to a writable source", () => {
+    const code = writable("0010042911");
+    const valid = useNationalCode(code);
+    expect(get(valid)).toBe(true);
+    code.set("1234567890");
+    expect(get(valid)).toBe(false);
+  });
+});
+
+describe("useMobileNumber", () => {
+  it("validates a plain value", () => {
+    expect(get(useMobileNumber("+98 912 345 6789"))).toBe(true);
+    expect(get(useMobileNumber("0912"))).toBe(false);
+  });
+
+  it("reacts to a writable source", () => {
+    const phone = writable("00989123456789");
+    const valid = useMobileNumber(phone);
+    expect(get(valid)).toBe(true);
+    phone.set("09500000000");
+    expect(get(valid)).toBe(false);
+  });
+});
+
+describe("useNumberWords", () => {
+  it("spells out a plain value", () => {
+    expect(get(useNumberWords(12500))).toBe("دوازده هزار و پانصد");
+    expect(get(useNumberWords(0))).toBe("صفر");
+    expect(get(useNumberWords(-7))).toBe("منفی هفت");
+  });
+
+  it("reacts to a writable source", async () => {
+    const amount = writable<number>(12500);
+    const words = useNumberWords(amount);
+    expect(get(words)).toBe("دوازده هزار و پانصد");
+    amount.set(12545);
+    expect(get(words)).toBe("دوازده هزار و پانصد و چهل و پنج");
+    amount.set(1000000);
+    expect(get(words)).toBe("یک میلیون");
+    await flush();
+  });
+});
+
 describe("svelte entry re-exports", () => {
   it("re-exports text and currency utilities", () => {
     expect(toPersianDigits(7)).toBe("۷");
@@ -221,5 +277,9 @@ describe("svelte entry re-exports", () => {
     expect(toRial(1000)).toBe(10000);
     expect(formatCurrency(12500000)).toBe("۱۲٬۵۰۰٬۰۰۰ تومان");
     expect(formatCurrency(2500000, { unit: "ریال", digits: "english" })).toBe("2,500,000 ریال");
+    expect(isNationalCode("0010042911")).toBe(true);
+    expect(isMobileNumber("09123456789")).toBe(true);
+    expect(normalizeMobileNumber("+989123456789")).toBe("09123456789");
+    expect(toNumberWords(21)).toBe("بیست و یک");
   });
 });

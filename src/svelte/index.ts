@@ -23,13 +23,23 @@
  */
 import { derived, readable, type Readable } from "svelte/store";
 import { formatJalaliSafely } from "../jalali/framework.js";
-import { toEnglishDigits, toPersianDigits } from "../text/index.js";
+import {
+  isMobileNumber,
+  isNationalCode,
+  toEnglishDigits,
+  toNumberWords,
+  toPersianDigits,
+} from "../text/index.js";
 import type { DateInput } from "../types.js";
 
 export {
   formatCurrency,
+  isMobileNumber,
+  isNationalCode,
+  normalizeMobileNumber,
   normalizePersianText,
   toEnglishDigits,
+  toNumberWords,
   toPersianDigits,
   toRial,
   toToman,
@@ -142,6 +152,61 @@ export function useJalaliDate(
   return derived([dateStore, formatStore], ([date, format]) =>
     formatJalaliSafely(date, format),
   );
+}
+
+/**
+ * Reactively validates a 10-digit Iranian National Code (کد ملی). Pass a
+ * plain string for a one-shot result or a `Readable` to keep reacting to
+ * changes. Dirty input is handled safely (non-digits stripped).
+ *
+ * @example
+ * ```svelte
+ * <script>
+ *   import { writable } from "svelte/store";
+ *   import { useNationalCode } from "vite-plugin-persian/svelte";
+ *   const code = writable("0010042911");
+ *   const valid = useNationalCode(code);
+ * </script>
+ * {#if $valid} کد ملی معتبر است {:else} کد ملی نامعتبر است {/if}
+ * ```
+ */
+export function useNationalCode(code: string | Readable<string>): Readable<boolean> {
+  return derived(toReadable(code), (value) => isNationalCode(value));
+}
+
+/**
+ * Reactively checks a string against valid Iranian mobile numbers. Reacts to
+ * stores and plain values (`+989…`, `00989…`, and bare `9…` forms work).
+ *
+ * @example
+ * ```svelte
+ * <script>
+ *   const phone = writable("+98 912 345 6789");
+ *   const valid = useMobileNumber(phone); // $valid → true
+ * </script>
+ * ```
+ */
+export function useMobileNumber(phone: string | Readable<string>): Readable<boolean> {
+  return derived(toReadable(phone), (value) => isMobileNumber(value));
+}
+
+/**
+ * Reactively spells a number out in Persian words. Reacts to stores and plain
+ * values (`12500` → `"دوازده هزار و پانصد"`).
+ *
+ * @example
+ * ```svelte
+ * <script>
+ *   const amount = writable(12500);
+ *   const words = useNumberWords(amount);
+ * </script>
+ * <span>{$words}</span> <!-- دوازده هزار و پانصد -->
+ * ```
+ */
+export function useNumberWords(
+  num: number | string | Readable<number | string>,
+): Readable<string> {
+  return derived(toReadable(num), (value) => toNumberWords(value));
 }
 
 /** Form controls whose displayed digits live in `.value`, not text. */

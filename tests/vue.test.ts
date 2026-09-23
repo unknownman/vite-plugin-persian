@@ -5,6 +5,9 @@ import {
   toRial,
   toToman,
   useJalaliDate,
+  useMobileNumber,
+  useNationalCode,
+  useNumberWords,
   usePersianDigits,
   vPersianDigits,
 } from "../src/vue/index.js";
@@ -130,5 +133,57 @@ describe("useJalaliDate", () => {
     // @ts-expect-error undefined input is only allowed at runtime
     expect(useJalaliDate(undefined).value).toBe("");
     expect(useJalaliDate("nonsense-string").value).toBe("");
+  });
+});
+
+describe("useNationalCode", () => {
+  it("validates plain values", () => {
+    expect(useNationalCode("0010042911").value).toBe(true);
+    expect(useNationalCode("1234567890").value).toBe(false);
+  });
+
+  it("reacts to a Ref and a getter", () => {
+    const code = ref("0010042911");
+    const valid = useNationalCode(code);
+    expect(valid.value).toBe(true);
+    code.value = "1234567890";
+    expect(valid.value).toBe(false);
+    code.value = "0010042911";
+    expect(useNationalCode(() => code.value).value).toBe(true);
+  });
+});
+
+describe("useMobileNumber", () => {
+  it("validates plain values", () => {
+    expect(useMobileNumber("+989123456789").value).toBe(true);
+    expect(useMobileNumber("0912").value).toBe(false);
+  });
+
+  it("reacts to a Ref and a getter", () => {
+    const phone = ref("+98 912 345 6789");
+    const valid = useMobileNumber(phone);
+    expect(valid.value).toBe(true);
+    phone.value = "09500000000";
+    expect(valid.value).toBe(false);
+    phone.value = "00989123456789";
+    expect(useMobileNumber(() => phone.value).value).toBe(true);
+  });
+});
+
+describe("useNumberWords", () => {
+  it("spells plain values", () => {
+    expect(useNumberWords(12500).value).toBe("دوازده هزار و پانصد");
+    expect(useNumberWords(0).value).toBe("صفر");
+    expect(useNumberWords(-7).value).toBe("منفی هفت");
+  });
+
+  it("reacts to a Ref and a getter", () => {
+    const amount = ref(12500);
+    const words = useNumberWords(amount);
+    expect(words.value).toBe("دوازده هزار و پانصد");
+    amount.value = 12545;
+    expect(words.value).toBe("دوازده هزار و پانصد و چهل و پنج");
+    amount.value = 0;
+    expect(useNumberWords(() => amount.value).value).toBe("صفر");
   });
 });

@@ -9,10 +9,14 @@ import type {
   FormatJalali,
   GetMonthName,
   IsLeapJalaliYear,
+  IsMobileNumber,
+  IsNationalCode,
+  NormalizeMobileNumber,
   NormalizePersianText,
   ToEnglishDigits,
   ToGregorian,
   ToJalali,
+  ToNumberWords,
   ToPersianDigits,
   ToRial,
   ToToman,
@@ -43,10 +47,16 @@ const _assertNormalizePersianText: NormalizePersianText = text.normalizePersianT
 const _assertToToman: ToToman = text.toToman;
 const _assertToRial: ToRial = text.toRial;
 const _assertFormatCurrency: FormatCurrency = text.formatCurrency;
+const _assertIsNationalCode: IsNationalCode = text.isNationalCode;
+const _assertIsMobileNumber: IsMobileNumber = text.isMobileNumber;
+const _assertNormalizeMobileNumber: NormalizeMobileNumber = text.normalizeMobileNumber;
+const _assertToNumberWords: ToNumberWords = text.toNumberWords;
 
 // The main module re-exports everything from both sub-modules.
 const _mainJalali: FormatJalali = main.formatJalali;
 const _mainText: ToPersianDigits = main.toPersianDigits;
+const _mainNationalCode: IsNationalCode = main.isNationalCode;
+const _mainWords: ToNumberWords = main.toNumberWords;
 
 // The methods subpath exposes its engine types alongside the engines themselves.
 const _calendar: CalendarEngine = intlEngine;
@@ -59,7 +69,8 @@ const _boundFormat: FormatJalali = _bound.formatJalali;
 void _assertFormatJalali, _assertToJalali, _assertToGregorian, _assertIsLeapJalaliYear,
   _assertGetMonthName, _assertToPersianDigits, _assertToEnglishDigits,
   _assertNormalizePersianText, _assertToToman, _assertToRial, _assertFormatCurrency,
-  _mainJalali, _mainText, _calendar, _engineName,
-  _bound, _boundFormat;
+  _assertIsNationalCode, _assertIsMobileNumber, _assertNormalizeMobileNumber,
+  _assertToNumberWords, _mainJalali, _mainText, _mainNationalCode, _mainWords,
+  _calendar, _engineName, _bound, _boundFormat;
 
 export {};

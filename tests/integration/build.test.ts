@@ -32,8 +32,8 @@ const INDEX_HTML_LTR = `<!doctype html>
 /** Imports every legacy feature and records results on `globalThis`. */
 const FULL_SURFACE_MAIN_TS = `
 import { formatJalali, toJalali, toGregorian, isLeapJalaliYear, getMonthName } from "virtual:persian/jalali";
-import { toPersianDigits, toEnglishDigits, normalizePersianText, toToman, toRial, formatCurrency } from "virtual:persian/text";
-import { toJalali as mainToJalali } from "virtual:persian";
+import { toPersianDigits, toEnglishDigits, normalizePersianText, toToman, toRial, formatCurrency, isNationalCode, isMobileNumber, normalizeMobileNumber, toNumberWords } from "virtual:persian/text";
+import { toJalali as mainToJalali, toNumberWords as mainWords } from "virtual:persian";
 (globalThis as any).__PERSIAN_RESULT__ = JSON.stringify({
   year: formatJalali(new Date(2024, 2, 20), "YYYY/MM/DD"),
   jy: toJalali(new Date(2024, 2, 20)).year,
@@ -49,6 +49,11 @@ import { toJalali as mainToJalali } from "virtual:persian";
   rl: toRial(1000),
   fmtFa: formatCurrency(12500000),
   fmtEn: formatCurrency(12500000, { digits: "english" }),
+  code: isNationalCode("0010042911"),
+  mobile: isMobileNumber("+98 912 345 6789"),
+  mnorm: normalizeMobileNumber("00989123456789"),
+  words: toNumberWords(12500),
+  mainWords: mainWords(7),
 });
 `;
 
@@ -67,6 +72,11 @@ const EXPECTED_FULL_SURFACE = JSON.stringify({
   rl: 10000,
   fmtFa: "۱۲٬۵۰۰٬۰۰۰ تومان",
   fmtEn: "12,500,000 تومان",
+  code: true,
+  mobile: true,
+  mnorm: "09123456789",
+  words: "دوازده هزار و پانصد",
+  mainWords: "هفت",
 });
 
 /** Imports only the Jalali module — used for the tree-shaking assertions. */

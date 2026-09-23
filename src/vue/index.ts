@@ -2,16 +2,23 @@ import { computed, isRef } from "vue";
 import type { ComputedRef, Directive, MaybeRefOrGetter } from "vue";
 import { formatJalaliSafely } from "../jalali/framework.js";
 import {
+  isMobileNumber,
+  isNationalCode,
   normalizePersianText,
   toEnglishDigits,
+  toNumberWords,
   toPersianDigits,
 } from "../text/index.js";
 import type { DateInput } from "../types.js";
 
 export {
   formatCurrency,
+  isMobileNumber,
+  isNationalCode,
+  normalizeMobileNumber,
   normalizePersianText,
   toEnglishDigits,
+  toNumberWords,
   toPersianDigits,
   toRial,
   toToman,
@@ -136,4 +143,53 @@ export function useJalaliDate(
     const format = formatStr === undefined ? undefined : resolveMaybeRefOrGetter(formatStr);
     return formatJalaliSafely(value, format);
   });
+}
+
+/**
+ * `useNationalCode` — a reactive composable validating a 10-digit Iranian
+ * National Code (کد ملی). Accepts a plain value, a `Ref`, or a getter, and
+ * re-validates whenever the input changes.
+ *
+ * @example
+ * ```vue
+ * <script setup>
+ * const code = ref("0010042911");
+ * const valid = useNationalCode(code); // template: {{ valid }} → true
+ * </script>
+ * ```
+ */
+export function useNationalCode(code: MaybeRefOrGetter<string>): ComputedRef<boolean> {
+  return computed(() => isNationalCode(resolveMaybeRefOrGetter(code)));
+}
+
+/**
+ * `useMobileNumber` — a reactive composable checking a string against valid
+ * Iranian mobile numbers (`09xxxxxxxxx`, including `+989…`/`00989…` forms).
+ *
+ * @example
+ * ```vue
+ * <script setup>
+ * const phone = ref("+98 912 345 6789");
+ * const valid = useMobileNumber(phone); // true
+ * </script>
+ * ```
+ */
+export function useMobileNumber(phone: MaybeRefOrGetter<string>): ComputedRef<boolean> {
+  return computed(() => isMobileNumber(resolveMaybeRefOrGetter(phone)));
+}
+
+/**
+ * `useNumberWords` — a reactive composable spelling a number out in Persian
+ * (e.g. `12500` → `"دوازده هزار و پانصد"`).
+ *
+ * @example
+ * ```vue
+ * <script setup>
+ * const amount = ref(12500);
+ * const words = useNumberWords(amount); // "دوازده هزار و پانصد"
+ * </script>
+ * ```
+ */
+export function useNumberWords(num: MaybeRefOrGetter<number | string>): ComputedRef<string> {
+  return computed(() => toNumberWords(resolveMaybeRefOrGetter(num)));
 }

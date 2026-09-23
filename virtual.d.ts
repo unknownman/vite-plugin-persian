@@ -37,8 +37,12 @@ declare module "virtual:persian/jalali" {
 declare module "virtual:persian/text" {
   import type {
     FormatCurrency,
+    IsMobileNumber,
+    IsNationalCode,
+    NormalizeMobileNumber,
     NormalizePersianText,
     ToEnglishDigits,
+    ToNumberWords,
     ToPersianDigits,
     ToRial,
     ToToman,
@@ -56,6 +60,14 @@ declare module "virtual:persian/text" {
   export const toRial: ToRial;
   /** Renders an amount with a currency unit. */
   export const formatCurrency: FormatCurrency;
+  /** Validates a 10-digit Iranian National Code. */
+  export const isNationalCode: IsNationalCode;
+  /** Checks a string against valid Iranian mobile numbers. */
+  export const isMobileNumber: IsMobileNumber;
+  /** Normalizes a mobile number to its `09xxxxxxxxx` form. */
+  export const normalizeMobileNumber: NormalizeMobileNumber;
+  /** Spells a number out in Persian words. */
+  export const toNumberWords: ToNumberWords;
 }
 
 declare module "virtual:persian" {
@@ -69,8 +81,12 @@ declare module "virtual:persian" {
 
   export {
     formatCurrency,
+    isMobileNumber,
+    isNationalCode,
+    normalizeMobileNumber,
     normalizePersianText,
     toEnglishDigits,
+    toNumberWords,
     toPersianDigits,
     toRial,
     toToman,

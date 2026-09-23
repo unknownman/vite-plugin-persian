@@ -30,4 +30,8 @@ export type {
   ToToman,
   ToRial,
   FormatCurrency,
+  IsNationalCode,
+  IsMobileNumber,
+  NormalizeMobileNumber,
+  ToNumberWords,
 } from "./types.js";

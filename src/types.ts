@@ -177,6 +177,31 @@ export type FormatCurrency = (
 ) => string;
 
 /**
+ * Validates a 10-digit Iranian National Code (کد ملی) using the official
+ * checksum algorithm. Accepts dirty strings (non-digits are stripped and
+ * Persian/Arabic-Indic digits are normalized first).
+ */
+export type IsNationalCode = (code: string) => boolean;
+
+/**
+ * Checks whether a string is a valid Iranian mobile number (`09xxxxxxxxx`)
+ * across all operators, accepting `+989…`, `00989…`, and `9…` variations.
+ */
+export type IsMobileNumber = (phone: string) => boolean;
+
+/**
+ * Normalizes an Iranian mobile number into the canonical `09xxxxxxxxx` form,
+ * or returns an empty string for invalid input.
+ */
+export type NormalizeMobileNumber = (phone: string) => string;
+
+/**
+ * Converts a number or numeric string into its spoken Persian text form
+ * (e.g. `12500` → `"دوازده هزار و پانصد"`). Invalid input yields `""`.
+ */
+export type ToNumberWords = (num: number | string) => string;
+
+/**
  * The functions exposed by the `virtual:persian/text` module.
  */
 export interface TextVirtualModule {
@@ -192,6 +217,14 @@ export interface TextVirtualModule {
   toRial: ToRial;
   /** Renders an amount with a currency unit. */
   formatCurrency: FormatCurrency;
+  /** Validates a 10-digit Iranian National Code. */
+  isNationalCode: IsNationalCode;
+  /** Checks a string against valid Iranian mobile numbers. */
+  isMobileNumber: IsMobileNumber;
+  /** Normalizes a mobile number to its `09xxxxxxxxx` form. */
+  normalizeMobileNumber: NormalizeMobileNumber;
+  /** Spells a number out in Persian words. */
+  toNumberWords: ToNumberWords;
 }
 
 /**
