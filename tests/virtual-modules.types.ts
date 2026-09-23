@@ -5,14 +5,18 @@
  * `npm run typecheck`.
  */
 import type {
+  CreateTextTransform,
   FormatCurrency,
   FormatJalali,
   GetMonthName,
   IsLeapJalaliYear,
   IsMobileNumber,
   IsNationalCode,
+  NormalizeHalfSpaces,
   NormalizeMobileNumber,
+  NormalizePersianInput,
   NormalizePersianText,
+  SanitizePersianText,
   ToEnglishDigits,
   ToGregorian,
   ToJalali,
@@ -51,12 +55,18 @@ const _assertIsNationalCode: IsNationalCode = text.isNationalCode;
 const _assertIsMobileNumber: IsMobileNumber = text.isMobileNumber;
 const _assertNormalizeMobileNumber: NormalizeMobileNumber = text.normalizeMobileNumber;
 const _assertToNumberWords: ToNumberWords = text.toNumberWords;
+const _assertSanitizePersianText: SanitizePersianText = text.sanitizePersianText;
+const _assertNormalizeHalfSpaces: NormalizeHalfSpaces = text.normalizeHalfSpaces;
+const _assertNormalizePersianInput: NormalizePersianInput = text.normalizePersianInput;
+const _assertCreateTextTransform: CreateTextTransform = text.createTextTransform;
 
 // The main module re-exports everything from both sub-modules.
 const _mainJalali: FormatJalali = main.formatJalali;
 const _mainText: ToPersianDigits = main.toPersianDigits;
 const _mainNationalCode: IsNationalCode = main.isNationalCode;
 const _mainWords: ToNumberWords = main.toNumberWords;
+const _mainHalfSpaces: NormalizeHalfSpaces = main.normalizeHalfSpaces;
+const _mainCreateTextTransform: CreateTextTransform = main.createTextTransform;
 
 // The methods subpath exposes its engine types alongside the engines themselves.
 const _calendar: CalendarEngine = intlEngine;
@@ -70,7 +80,9 @@ void _assertFormatJalali, _assertToJalali, _assertToGregorian, _assertIsLeapJala
   _assertGetMonthName, _assertToPersianDigits, _assertToEnglishDigits,
   _assertNormalizePersianText, _assertToToman, _assertToRial, _assertFormatCurrency,
   _assertIsNationalCode, _assertIsMobileNumber, _assertNormalizeMobileNumber,
-  _assertToNumberWords, _mainJalali, _mainText, _mainNationalCode, _mainWords,
+  _assertToNumberWords, _assertSanitizePersianText, _assertNormalizeHalfSpaces,
+  _assertNormalizePersianInput, _assertCreateTextTransform, _mainJalali, _mainText,
+  _mainNationalCode, _mainWords, _mainHalfSpaces, _mainCreateTextTransform,
   _calendar, _engineName, _bound, _boundFormat;
 
 export {};

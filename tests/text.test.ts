@@ -277,4 +277,12 @@ describe("textModule", () => {
     expect(textModule.normalizeMobileNumber("9123456789")).toBe("09123456789");
     expect(textModule.toNumberWords(12500)).toBe("دوازده هزار و پانصد");
   });
+
+  it("exposes the v0.4.0 normalization primitives", () => {
+    expect(textModule.sanitizePersianText("يك ك")).toBe("یک ک");
+    expect(textModule.normalizeHalfSpaces("می شود")).toBe("می\u200cشود");
+    expect(textModule.normalizePersianInput("مي شود 12")).toBe("می\u200cشود ۱۲");
+    expect(textModule.createTextTransform({ digits: "english" })("۱۲۳")).toBe("123");
+    expect(createTextModule().sanitizePersianText("ك")).toBe("ک");
+  });
 });

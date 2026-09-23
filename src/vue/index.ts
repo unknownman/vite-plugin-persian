@@ -1,6 +1,8 @@
 import { computed, isRef } from "vue";
-import type { ComputedRef, Directive, MaybeRefOrGetter } from "vue";
+import type { ComputedRef, Directive, DirectiveBinding, MaybeRefOrGetter } from "vue";
 import { formatJalaliSafely } from "../jalali/framework.js";
+import { applyPersianInputTransform } from "../text/input.js";
+import { resolvePersianInputTransform } from "../text/normalization.js";
 import {
   isMobileNumber,
   isNationalCode,
@@ -9,20 +11,35 @@ import {
   toNumberWords,
   toPersianDigits,
 } from "../text/index.js";
-import type { DateInput } from "../types.js";
+import type { DateInput, PersianInputOptions, PersianTextTransform } from "../types.js";
 
 export {
+  adjustSelection,
+  applyPersianInputTransform,
+  createTextTransform,
   formatCurrency,
   isMobileNumber,
   isNationalCode,
+  normalizeHalfSpaces,
   normalizeMobileNumber,
+  normalizePersianInput,
   normalizePersianText,
+  sanitizePersianText,
   toEnglishDigits,
   toNumberWords,
   toPersianDigits,
   toRial,
   toToman,
 } from "../text/index.js";
+export type {
+  ApplyPersianInputResult,
+  PersianDigitMode,
+  PersianEditableElement,
+  PersianInputOptions,
+  PersianSelection,
+  PersianTextTransform,
+  TextNormalizationOptions,
+} from "../types.js";
 
 type EditableElement = HTMLElement & { value: string };
 
@@ -192,4 +209,126 @@ export function useMobileNumber(phone: MaybeRefOrGetter<string>): ComputedRef<bo
  */
 export function useNumberWords(num: MaybeRefOrGetter<number | string>): ComputedRef<string> {
   return computed(() => toNumberWords(resolveMaybeRefOrGetter(num)));
+}
+
+/**
+ * Value bound to `v-persian-input`: an options object, a bare boolean, or
+ * nothing. `true`/omitted use the documented defaults; `false` disables
+ * normalization (identity).
+ */
+export type PersianInputDirectiveValue = PersianInputOptions | boolean;
+
+/**
+ * Per-element state for the `v-persian-input` directive: the current
+ * transform (replaced on `updated`) and the bound listener (used to remove it
+ * on `unmounted`).
+ */
+interface PersianInputDirectiveEntry {
+  transform: PersianTextTransform;
+  handler: () => void;
+}
+
+const PERSIAN_INPUT_ENTRIES = new WeakMap<HTMLElement, PersianInputDirectiveEntry>();
+
+function putPersianInputEntry(el: HTMLElement, entry: PersianInputDirectiveEntry): void {
+  PERSIAN_INPUT_ENTRIES.set(el, entry);
+}
+
+function getPersianInputEntry(el: HTMLElement): PersianInputDirectiveEntry | undefined {
+  return PERSIAN_INPUT_ENTRIES.get(el);
+}
+
+function dropPersianInputEntry(el: HTMLElement): void {
+  PERSIAN_INPUT_ENTRIES.delete(el);
+}
+
+/**
+ * `v-persian-input` — a directive that listens to `input` events on
+ * `<input>`/`<textarea>` elements, normalizes the typed value in real time,
+ * and writes the result back **before** Vue's `v-model` handler reads it, so
+ * the bound model always carries the cleaned value.
+ *
+ * Because the directive attaches its listener in the `created` hook — which
+ * Vue schedules before the element's own `v-model`/`@input` listeners — there
+ * is no extra event dispatch and no flicker: the pipeline runs first, `v-model`
+ * picks up the normalized `target.value`, and the caret is restored in place.
+ *
+ * Usage:
+ *
+ * ```html
+ * <!-- defaults: sanitize + half-spaces + Persian digits -->
+ * <input v-model="name" v-persian-input />
+ *
+ * <!-- all options configurable, or `false` to disable -->
+ * <textarea v-model="bio" v-persian-input="{ halfSpaces: false, digits: 'english' }" />
+ * ```
+ *
+ * Register it globally (`app.directive("persian-input", vPersianInput)`) or
+ * per-component (`directives: { persianInput: vPersianInput }`).
+ */
+export const vPersianInput: Directive<HTMLElement, PersianInputDirectiveValue | undefined> = {
+  created(el, binding: DirectiveBinding<PersianInputDirectiveValue | undefined>) {
+    if (
+      (typeof HTMLInputElement === "undefined" || !(el instanceof HTMLInputElement)) &&
+      (typeof HTMLTextAreaElement === "undefined" || !(el instanceof HTMLTextAreaElement))
+    ) {
+      return;
+    }
+    const entry: PersianInputDirectiveEntry = {
+      transform: resolvePersianInputTransform(binding.value),
+      handler: () => {
+        applyPersianInputTransform(el as HTMLInputElement | HTMLTextAreaElement, entry.transform);
+      },
+    };
+    el.addEventListener("input", entry.handler);
+    putPersianInputEntry(el, entry);
+  },
+  updated(el, binding: DirectiveBinding<PersianInputDirectiveValue | undefined>) {
+    const entry = getPersianInputEntry(el);
+    if (entry) {
+      entry.transform = resolvePersianInputTransform(binding.value);
+    } else if (
+      (typeof HTMLInputElement !== "undefined" && el instanceof HTMLInputElement) ||
+      (typeof HTMLTextAreaElement !== "undefined" && el instanceof HTMLTextAreaElement)
+    ) {
+      // The `created` guard skipped a non-editable element earlier; if it is
+      // editable now (unusual), wire it up.
+      const fresh: PersianInputDirectiveEntry = {
+        transform: resolvePersianInputTransform(binding.value),
+        handler: () => {
+          applyPersianInputTransform(el as HTMLInputElement | HTMLTextAreaElement, fresh.transform);
+        },
+      };
+      el.addEventListener("input", fresh.handler);
+      putPersianInputEntry(el, fresh);
+    }
+  },
+  unmounted(el) {
+    const entry = getPersianInputEntry(el);
+    if (entry) {
+      el.removeEventListener("input", entry.handler);
+      dropPersianInputEntry(el);
+    }
+  },
+};
+
+/**
+ * `usePersianInput()` — a composable returning the `v-persian-input`
+ * directive ready for local registration plus the resolved transform, for
+ * `defineComponent`/options API users and programmatic normalization.
+ *
+ * @example
+ * ```vue
+ * <script>
+ * export default {
+ *   directives: { persianInput: usePersianInput().vPersianInput },
+ * };
+ * </script>
+ * ```
+ */
+export function usePersianInput(options?: PersianInputOptions): {
+  vPersianInput: typeof vPersianInput;
+  transform: PersianTextTransform;
+} {
+  return { vPersianInput, transform: resolvePersianInputTransform(options) };
 }

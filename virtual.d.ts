@@ -36,11 +36,15 @@ declare module "virtual:persian/jalali" {
 
 declare module "virtual:persian/text" {
   import type {
+    CreateTextTransform,
     FormatCurrency,
     IsMobileNumber,
     IsNationalCode,
+    NormalizeHalfSpaces,
     NormalizeMobileNumber,
+    NormalizePersianInput,
     NormalizePersianText,
+    SanitizePersianText,
     ToEnglishDigits,
     ToNumberWords,
     ToPersianDigits,
@@ -68,6 +72,14 @@ declare module "virtual:persian/text" {
   export const normalizeMobileNumber: NormalizeMobileNumber;
   /** Spells a number out in Persian words. */
   export const toNumberWords: ToNumberWords;
+  /** Converts Arabic yeh/kaf to Persian (v0.4.0). */
+  export const sanitizePersianText: SanitizePersianText;
+  /** Inserts/corrects ZWNJ half-spaces (v0.4.0). */
+  export const normalizeHalfSpaces: NormalizeHalfSpaces;
+  /** One-shot combined pipeline over a raw string (v0.4.0). */
+  export const normalizePersianInput: NormalizePersianInput;
+  /** Builds a reusable normalized-input transform (v0.4.0). */
+  export const createTextTransform: CreateTextTransform;
 }
 
 declare module "virtual:persian" {
@@ -80,11 +92,15 @@ declare module "virtual:persian" {
   } from "virtual:persian/jalali";
 
   export {
+    createTextTransform,
     formatCurrency,
     isMobileNumber,
     isNationalCode,
+    normalizeHalfSpaces,
     normalizeMobileNumber,
+    normalizePersianInput,
     normalizePersianText,
+    sanitizePersianText,
     toEnglishDigits,
     toNumberWords,
     toPersianDigits,

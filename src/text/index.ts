@@ -6,6 +6,12 @@ import {
   normalizeMobileNumber,
   toNumberWords,
 } from "./utilities.js";
+import {
+  createTextTransform,
+  normalizeHalfSpaces,
+  normalizePersianInput,
+  sanitizePersianText,
+} from "./normalization.js";
 import type { TextVirtualModule } from "../types.js";
 
 export { normalizePersianText, toEnglishDigits, toPersianDigits } from "./runtime.js";
@@ -16,12 +22,32 @@ export {
   normalizeMobileNumber,
   toNumberWords,
 } from "./utilities.js";
+export {
+  sanitizePersianText,
+  normalizeHalfSpaces,
+  createTextTransform,
+  normalizePersianInput,
+  resolvePersianInputTransform,
+} from "./normalization.js";
+export type {
+  ApplyPersianInputResult,
+  PersianDigitMode,
+  PersianEditableElement,
+  PersianInputOptions,
+  PersianSelection,
+  PersianTextTransform,
+  TextNormalizationOptions,
+} from "../types.js";
+export { adjustSelection } from "./caret.js";
+export { applyPersianInputTransform, isTextEditableElement } from "./input.js";
 
 /**
  * Builds the `virtual:persian/text` module surface.
  *
  * Kept as a factory for symmetry with the Jalali module and so the module can
- * later be instantiated per-plugin instance without global state.
+ * later be instantiated per-plugin instance without global state. The pure
+ * string primitives live here; the DOM/caret helpers are framework-facing and
+ * stay out of the virtual module.
  */
 export function createTextModule(): TextVirtualModule {
   return {
@@ -35,6 +61,10 @@ export function createTextModule(): TextVirtualModule {
     isMobileNumber,
     normalizeMobileNumber,
     toNumberWords,
+    sanitizePersianText,
+    normalizeHalfSpaces,
+    normalizePersianInput,
+    createTextTransform,
   };
 }
 

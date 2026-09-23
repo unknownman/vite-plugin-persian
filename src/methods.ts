@@ -19,4 +19,4 @@ export { jalaaliJsEngine } from "./jalali/engines/jalaali-js.js";
 
 export type { CalendarEngine, JalaliEngine } from "./types.js";
 
-export { normalizePersianText, toEnglishDigits, toPersianDigits, formatCurrency, toRial, toToman, isNationalCode, isMobileNumber, normalizeMobileNumber, toNumberWords } from "./text/index.js";
+export { normalizePersianText, toEnglishDigits, toPersianDigits, formatCurrency, toRial, toToman, isNationalCode, isMobileNumber, normalizeMobileNumber, toNumberWords, sanitizePersianText, normalizeHalfSpaces, normalizePersianInput, createTextTransform } from "./text/index.js";

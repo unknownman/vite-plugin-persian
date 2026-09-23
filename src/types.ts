@@ -202,6 +202,126 @@ export type NormalizeMobileNumber = (phone: string) => string;
 export type ToNumberWords = (num: number | string) => string;
 
 /**
+ * Determines which numeral system the text input pipeline applies.
+ */
+export type PersianDigitMode = "persian" | "english" | "none";
+
+/**
+ * A function that maps a raw string to a normalized/transformed string.
+ */
+export type PersianTextTransform = (text: string) => string;
+
+/**
+ * A caret (selection) range in an editable field, in UTF-16 code units —
+ * matching the units `HTMLInputElement.selectionStart`/`selectionEnd` report.
+ */
+export interface PersianSelection {
+  /** Inclusive start boundary of the selection. */
+  start: number;
+  /** Exclusive end boundary of the selection. */
+  end: number;
+}
+
+/**
+ * Options for the input text pipeline (`createTextTransform` /
+ * `normalizePersianInput` and the framework input handlers).
+ *
+ * All fields are optional and default to the documented values, so a bare
+ * `true` / empty options object produces the full Persian-aware cleaning.
+ */
+export interface TextNormalizationOptions {
+  /**
+   * Convert Arabic letters to their Persian equivalents (`ي`→`ی`, `ى`→`ی`,
+   * `ك`→`ک`) so words typed on an Arabic keyboard render correctly.
+   * @default true
+   */
+  sanitize?: boolean;
+  /**
+   * Insert/correct zero-width non-joiners (ZWNJ, نیم‌فاصله) for the common
+   * Persian affixes — verb prefixes `می`/`نمی` and suffixes `ها`/`های`/
+   * `تر`/`ترین` (e.g. `"می شود"` → `"می‌شود"`). The conversion is
+   * space-based and conservative: already-correct text is left untouched.
+   * @default true
+   */
+  halfSpaces?: boolean;
+  /**
+   * Numeral system applied by the pipeline.
+   * @default 'persian'
+   */
+  digits?: PersianDigitMode;
+}
+
+/**
+ * Options accepted by the interactive input handlers (`usePersianInput`,
+ * `v-persian-input`, `use:persianInput`).
+ */
+export interface PersianInputOptions extends TextNormalizationOptions {
+  /**
+   * Replaces the entire pipeline with a custom transform; when provided, the
+   * other options are ignored.
+   */
+  transform?: PersianTextTransform;
+  /**
+   * Initial value rendered into the field on first render (transformed once).
+   * @default ''
+   */
+  initialValue?: string;
+}
+
+/**
+ * Converts Arabic `ي`/`ى` to Persian `ی` and Arabic `ك` to Persian `ک`,
+ * without touching anything else (whitespace is preserved).
+ */
+export type SanitizePersianText = (value: string) => string;
+
+/**
+ * Inserts/corrects zero-width non-joiners (ZWNJ) for common Persian affixes.
+ */
+export type NormalizeHalfSpaces = (value: string) => string;
+
+/**
+ * One-shot combined normalization: sanitize + half-space correction + digit
+ * conversion over a raw string (see {@link TextNormalizationOptions}).
+ */
+export type NormalizePersianInput = (
+  text: string,
+  options?: TextNormalizationOptions,
+) => string;
+
+/**
+ * Builds a reusable `PersianTextTransform` from {@link TextNormalizationOptions}.
+ */
+export type CreateTextTransform = (options?: TextNormalizationOptions) => PersianTextTransform;
+
+/**
+ * The subset of an editable element the input formatter reads/writes. Kept as
+ * a structural interface so it works with `HTMLInputElement`,
+ * `HTMLTextAreaElement`, and plain test doubles alike.
+ */
+export interface PersianEditableElement {
+  /** The element's current text value. */
+  value: string;
+  /** Caret/selection start (UTF-16 code units). */
+  selectionStart?: number | null;
+  /** Caret/selection end (UTF-16 code units). */
+  selectionEnd?: number | null;
+  /** Restores a selection range; may be unavailable on some hosts. */
+  setSelectionRange?(start: number, end: number): void;
+}
+
+/**
+ * Result of {@link applyPersianInputTransform} for a single input event.
+ */
+export interface ApplyPersianInputResult {
+  /** The value left in the element after normalization. */
+  value: string;
+  /** Whether the transform actually rewrote the value. */
+  changed: boolean;
+  /** The restored selection range in the (new) value. */
+  selection: PersianSelection;
+}
+
+/**
  * The functions exposed by the `virtual:persian/text` module.
  */
 export interface TextVirtualModule {
@@ -211,6 +331,14 @@ export interface TextVirtualModule {
   toEnglishDigits: ToEnglishDigits;
   /** Normalizes Persian characters and whitespace. */
   normalizePersianText: NormalizePersianText;
+  /** Converts Arabic yeh/kaf to Persian (`v0.4.0`). */
+  sanitizePersianText: SanitizePersianText;
+  /** Inserts/corrects ZWNJ half-spaces (`v0.4.0`). */
+  normalizeHalfSpaces: NormalizeHalfSpaces;
+  /** One-shot combined pipeline over a raw string (`v0.4.0`). */
+  normalizePersianInput: NormalizePersianInput;
+  /** Builds a reusable normalized-input transform (`v0.4.0`). */
+  createTextTransform: CreateTextTransform;
   /** Converts a Rial figure to Toman (÷ 10). */
   toToman: ToToman;
   /** Converts a Toman figure to Rial (× 10). */

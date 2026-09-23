@@ -23,6 +23,8 @@
  */
 import { derived, readable, type Readable } from "svelte/store";
 import { formatJalaliSafely } from "../jalali/framework.js";
+import { applyPersianInputTransform } from "../text/input.js";
+import { resolvePersianInputTransform } from "../text/normalization.js";
 import {
   isMobileNumber,
   isNationalCode,
@@ -30,20 +32,35 @@ import {
   toNumberWords,
   toPersianDigits,
 } from "../text/index.js";
-import type { DateInput } from "../types.js";
+import type { DateInput, PersianInputOptions, PersianTextTransform } from "../types.js";
 
 export {
+  adjustSelection,
+  applyPersianInputTransform,
+  createTextTransform,
   formatCurrency,
   isMobileNumber,
   isNationalCode,
+  normalizeHalfSpaces,
   normalizeMobileNumber,
+  normalizePersianInput,
   normalizePersianText,
+  sanitizePersianText,
   toEnglishDigits,
   toNumberWords,
   toPersianDigits,
   toRial,
   toToman,
 } from "../text/index.js";
+export type {
+  ApplyPersianInputResult,
+  PersianDigitMode,
+  PersianEditableElement,
+  PersianInputOptions,
+  PersianSelection,
+  PersianTextTransform,
+  TextNormalizationOptions,
+} from "../types.js";
 
 /**
  * Value accepted by the Svelte helpers: a plain number or digit-bearing
@@ -272,6 +289,74 @@ export function persianDigits(
     },
     destroy() {
       unsubscribe?.();
+    },
+  };
+}
+
+/**
+ * Return value of the `persianInput` action: re-binds the transform when the
+ * parameter changes and tears the listener down on destroy. Matches Svelte's
+ * `ActionReturn` shape.
+ */
+export interface PersianInputActionReturn {
+  /** Re-resolves the transform when the action's parameter changes. */
+  update?: (parameter: PersianInputOptions | boolean | undefined) => void;
+  /** Removes the `input` listener when the element is destroyed. */
+  destroy?: () => void;
+}
+
+/**
+ * `use:persianInput` — a Svelte action that intercepts `input` events on
+ * `<input>`/`<textarea>` elements, normalizes the live value with the Persian
+ * text pipeline, restores the caret, and re-dispatches the event so Svelte's
+ * `bind:value` picks up the cleaned value.
+ *
+ * ```svelte
+ * <script>
+ *   import { persianInput } from "vite-plugin-persian/svelte";
+ *   let name = "";
+ * </script>
+ *
+ * <input bind:value={name} use:persianInput />
+ * <textarea bind:value={bio} use:persianInput="{ { halfSpaces: true } }" />
+ * ```
+ *
+ * The action always writes the transformed value before firing the follow-up
+ * `input` event, and the follow-up is only dispatched when the value actually
+ * changed — so the model never lags by a keystroke and there is no event
+ * loop.
+ */
+export function persianInput(
+  node: HTMLElement,
+  parameter?: PersianInputOptions | boolean,
+): PersianInputActionReturn {
+  let transform: PersianTextTransform = resolvePersianInputTransform(parameter);
+
+  const handler = () => {
+    if (
+      !(
+        (typeof HTMLInputElement !== "undefined" && node instanceof HTMLInputElement) ||
+        (typeof HTMLTextAreaElement !== "undefined" && node instanceof HTMLTextAreaElement)
+      )
+    ) {
+      return;
+    }
+    const result = applyPersianInputTransform(node, transform);
+    if (result.changed) {
+      // Let `bind:value` (which listens on the same element) read the already
+      // normalized value instead of the raw one it captured a moment ago.
+      node.dispatchEvent(new Event("input"));
+    }
+  };
+
+  node.addEventListener("input", handler);
+
+  return {
+    update(next) {
+      transform = resolvePersianInputTransform(next);
+    },
+    destroy() {
+      node.removeEventListener("input", handler);
     },
   };
 }
