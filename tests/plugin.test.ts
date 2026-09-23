@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { persian, resolveOptions } from "../src/index.js";
-import type { Plugin } from "vite";
+import type { Plugin, UserConfig } from "vite";
 
 interface PluginUnderTest {
   name: string;
   resolveId: (source: string) => unknown;
   load: (id: string) => unknown;
   transformIndexHtml: (html: string) => unknown;
+  config: (config: UserConfig) => unknown;
 }
 
 function harness(options = {}): PluginUnderTest {
@@ -26,7 +27,12 @@ describe("resolveOptions", () => {
       html: { lang: "fa", dir: "rtl" },
       jalali: { enabled: true, engine: "jalaali-js" },
       text: { enabled: true },
+      experimental: { logicalProperties: false },
     });
+  });
+
+  it("never resolves a font when none is configured", () => {
+    expect(resolveOptions().font).toBeUndefined();
   });
 
   it("merges partial user options over defaults", () => {
@@ -37,6 +43,37 @@ describe("resolveOptions", () => {
     expect(resolved.html).toEqual({ lang: "en", dir: "ltr" });
     expect(resolved.jalali).toEqual({ enabled: false, engine: "intl" });
     expect(resolved.text).toEqual({ enabled: true });
+    expect(resolved.experimental).toEqual({ logicalProperties: false });
+  });
+
+  it("resolves the experimental logicalProperties flag", () => {
+    expect(resolveOptions({ experimental: { logicalProperties: true } }).experimental).toEqual({
+      logicalProperties: true,
+    });
+  });
+});
+
+describe("font options", () => {
+  it("resolves a configured font with the swap display default", () => {
+    const resolved = resolveOptions({ font: { family: "Vazirmatn" } });
+    expect(resolved.font).toEqual({ family: "Vazirmatn", display: "swap" });
+  });
+
+  it("honors an explicit display value", () => {
+    const resolved = resolveOptions({ font: { family: "Sahel", display: "optional" } });
+    expect(resolved.font).toEqual({ family: "Sahel", display: "optional" });
+  });
+
+  it("throws on an unknown font family", () => {
+    expect(() => resolveOptions({ font: { family: "NotAFont" as never } })).toThrow(
+      /unknown font family .*\. Supported families: Vazirmatn, Sahel, Samim/,
+    );
+  });
+
+  it("throws on an unknown display value", () => {
+    expect(() => resolveOptions({ font: { family: "Samim", display: "fancy" as never } })).toThrow(
+      /invalid font display .*\. Supported values: auto, block, swap, fallback, optional/,
+    );
   });
 });
 
@@ -136,5 +173,58 @@ describe("transformIndexHtml", () => {
   it("respects custom html options", () => {
     const p = harness({ html: { lang: "en", dir: "ltr" } });
     expect(p.transformIndexHtml("<html lang=\"fa\">")).toBe('<html lang="en" dir="ltr">');
+  });
+
+  it("returns a plain string when no font is configured", () => {
+    const p = harness();
+    expect(typeof p.transformIndexHtml("<html>")).toBe("string");
+  });
+
+  it("injects font @font-face style and a preconnect hint when configured", () => {
+    const p = harness({ font: { family: "Vazirmatn" } });
+    const result = p.transformIndexHtml("<html lang=\"en\">") as {
+      html: string;
+      tags: Array<{ tag: string; attrs?: Record<string, string | boolean>; children?: string }>;
+    };
+
+    expect(result.html).toBe('<html lang="fa" dir="rtl">');
+    const tags = result.tags;
+
+    const preconnect = tags.find((t) => t.tag === "link");
+    expect(preconnect?.attrs).toMatchObject({ rel: "preconnect", href: "https://cdn.jsdelivr.net" });
+
+    const style = tags.find((t) => t.tag === "style");
+    expect(style?.children).toContain("@font-face");
+    expect(style?.children).toContain('font-family: "Vazirmatn"');
+    expect(style?.children).toContain("font-display: swap");
+    expect(style?.children).toContain("format(\"woff2\")");
+  });
+
+  it("uses the requested font-display value", () => {
+    const p = harness({ font: { family: "Sahel", display: "block" } });
+    const result = p.transformIndexHtml("<html>") as {
+      tags: Array<{ children?: string }>;
+    };
+    const style = result.tags.find((t) => "children" in t);
+    expect(style?.children).toContain("font-display: block");
+  });
+});
+
+describe("config hook (CSS logical properties)", () => {
+  it("adds the PostCSS transformer to the CSS pipeline when enabled", () => {
+    const p = harness({ experimental: { logicalProperties: true } });
+    const returned = p.config({}) as UserConfig;
+    const plugins = (returned.css?.postcss as { plugins?: unknown[] } | undefined)?.plugins ?? [];
+    expect(plugins).toHaveLength(1);
+    expect(plugins[0]).toMatchObject({
+      postcssPlugin: "vite-plugin-persian:logical-properties",
+    });
+  });
+
+  it("returns nothing when logical properties are disabled (default)", () => {
+    const p = harness();
+    expect(p.config({})).toBeUndefined();
+    const p2 = harness({ experimental: { logicalProperties: false } });
+    expect(p2.config({})).toBeUndefined();
   });
 });

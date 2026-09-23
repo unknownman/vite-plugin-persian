@@ -6,7 +6,7 @@ exercises the framework-specific entry, the virtual modules, and the plugin.
 
 | Demo | Framework entry | Framework | Highlights |
 | --- | --- | --- | --- |
-| `react-demo` | `vite-plugin-persian/react` | React 19 | hooks (`useJalaliDate`, `useNationalCode`, …), live Jalali clock |
+| `react-demo` | `vite-plugin-persian/react` | React 19 | hooks (`useJalaliDate`, `useNationalCode`, …), live Jalali clock, Vazirmatn font injection + CSS logical-properties rewrite (v0.3.0) |
 | `vue-demo` | `vite-plugin-persian/vue` | Vue 3 | hooks + global `v-persian-digits` directive, live clock |
 | `svelte-demo` | `vite-plugin-persian/svelte` | Svelte 5 | hooks as stores, `use:persianDigits` action, live clock |
 

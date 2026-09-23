@@ -3,5 +3,11 @@ import { defineConfig } from "vite";
 import { persian } from "vite-plugin-persian";
 
 export default defineConfig({
-  plugins: [react(), persian()],
+  plugins: [
+    react(),
+    persian({
+      font: { family: "Vazirmatn", display: "swap" },
+      experimental: { logicalProperties: true },
+    }),
+  ],
 });

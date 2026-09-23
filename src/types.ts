@@ -280,6 +280,67 @@ export interface TextOptions {
 }
 
 /**
+ * Persian webfont families the plugin can inject automatically.
+ *
+ * Only the families shipped by well-maintained open-source Persian font
+ * projects are supported; each one is served from the jsDelivr CDN, so there
+ * is nothing to self-host and no build-time network access is required.
+ */
+export type FontFamily = "Vazirmatn" | "Sahel" | "Samim";
+
+/**
+ * CSS `font-display` descriptor, controlling how the font swaps in while the
+ * webfont is loading — the main lever for perceived layout stability.
+ *
+ * - `'swap'` (default): show a fallback immediately, swap in when ready.
+ * - `'block'`: brief invisible block period, then fallback, then swap.
+ * - `'fallback'`: very short block period, no swap after a timeout.
+ * - `'optional'`: let the browser decide, ideal for low-end connections.
+ * - `'auto'`: browser-defined (usually `block`).
+ */
+export type FontDisplay = "auto" | "block" | "swap" | "fallback" | "optional";
+
+/**
+ * User-facing options for {@link PersianOptions.font} (v0.3.0).
+ */
+export interface FontOptions {
+  /**
+   * Persian webfont family to inject `@font-face` rules for.
+   */
+  family: FontFamily;
+  /**
+   * `font-display` descriptor for the injected `@font-face` rules.
+   * @default 'swap'
+   */
+  display?: FontDisplay;
+}
+
+/**
+ * Config fully resolved from {@link FontOptions} — every field is present.
+ */
+export type ResolvedFontOptions = Required<FontOptions>;
+
+/**
+ * Opt-in, explicitly experimental features (v0.3.0). Nothing here affects the
+ * default behavior; each flag must be turned on to change the build output.
+ */
+export interface ExperimentalOptions {
+  /**
+   * Rewrite physical CSS layout properties into CSS logical properties
+   * (`margin-left` → `margin-inline-start`, `left`/`right` →
+   * `inset-inline-*`, `text-align: left|right` → `start|end`) so layouts flip
+   * correctly under `dir="rtl"` with zero author-side refactoring.
+   *
+   * Implemented as a PostCSS plugin injected into the Vite CSS pipeline, so
+   * it applies to `.css` files and to `<style>` blocks alike. When disabled
+   * (the default) no PostCSS plugin is added and nothing is rewritten.
+   *
+   * @default false
+   */
+  logicalProperties?: boolean;
+}
+
+/**
  * Configuration options for the `vite-plugin-persian` plugin.
  *
  * All sections are optional; defaults are applied internally.
@@ -291,6 +352,10 @@ export interface PersianOptions {
   jalali?: JalaliOptions;
   /** Text utilities (Persian digits + normalization). */
   text?: TextOptions;
+  /** Automatic Persian webfont injection (v0.3.0, opt-in). */
+  font?: FontOptions;
+  /** Explicitly experimental features (v0.3.0, opt-in). */
+  experimental?: ExperimentalOptions;
 }
 
 /**
@@ -303,4 +368,8 @@ export interface ResolvedPersianOptions {
   jalali: Required<JalaliOptions>;
   /** Resolved text settings. */
   text: Required<TextOptions>;
+  /** Resolved font settings — present only when `font` was configured. */
+  font?: ResolvedFontOptions;
+  /** Resolved experimental settings. */
+  experimental: Required<ExperimentalOptions>;
 }

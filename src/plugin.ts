@@ -1,4 +1,6 @@
-import type { Plugin } from "vite";
+import type { Plugin, UserConfig } from "vite";
+import { logicalPropertiesPostCss } from "./css/logical-properties.js";
+import { resolveFontOptions, createFontTags } from "./fonts.js";
 import { createHtmlTransformer } from "./html.js";
 import type { PersianOptions, ResolvedPersianOptions } from "./types.js";
 
@@ -33,8 +35,12 @@ const METHODS_SPECIFIER = "vite-plugin-persian/methods";
  * - `jalali.enabled` → `true`
  * - `jalali.engine`  → `'jalaali-js'`
  * - `text.enabled`   → `true`
+ * - `font`           → resolved only when configured (v0.3.0)
+ * - `experimental.logicalProperties` → `false` (v0.3.0)
  */
 export function resolveOptions(options: PersianOptions = {}): ResolvedPersianOptions {
+  const font = options.font === undefined ? undefined : resolveFontOptions(options.font);
+
   return {
     html: {
       lang: options.html?.lang ?? "fa",
@@ -47,6 +53,10 @@ export function resolveOptions(options: PersianOptions = {}): ResolvedPersianOpt
     text: {
       enabled: options.text?.enabled ?? true,
     },
+    ...(font !== undefined ? { font } : {}),
+    experimental: {
+      logicalProperties: options.experimental?.logicalProperties ?? false,
+    },
   };
 }
 
@@ -54,6 +64,10 @@ export function resolveOptions(options: PersianOptions = {}): ResolvedPersianOpt
  * The `vite-plugin-persian` plugin.
  *
  * - Injects/updates `lang` and `dir` on the `<html>` tag.
+ * - Optionally injects `@font-face` rules for a Persian webfont (`font`.
+ *   v0.3.0).
+ * - Optionally rewrites CSS to logical properties (`experimental.
+ *   logicalProperties`, v0.3.0) via an injected PostCSS plugin.
  * - Serves the `virtual:persian`, `virtual:persian/jalali`, and
  *   `virtual:persian/text` modules.
  *
@@ -120,7 +134,30 @@ export function persian(options: PersianOptions = {}): Plugin {
     },
 
     transformIndexHtml(html) {
-      return htmlTransform(html);
+      const transformed = htmlTransform(html);
+      if (resolved.font === undefined) {
+        return transformed;
+      }
+      // When font injection is enabled, keep the lang/dir result and append
+      // the @font-face tags; Vite's default renderer merges them into <head>.
+      return { html: transformed, tags: createFontTags(resolved.font) };
+    },
+
+    config(_config) {
+      // Opt-in CSS logical-properties rewrite: inject the PostCSS plugin into
+      // Vite's CSS pipeline. Nothing is added unless the flag is enabled, so
+      // the default (v0.1.x / v0.2.0) behavior is untouched.
+      if (!resolved.experimental.logicalProperties) {
+        return undefined;
+      }
+      const config: UserConfig = {
+        css: {
+          postcss: {
+            plugins: [logicalPropertiesPostCss],
+          },
+        },
+      };
+      return config;
     },
   };
 }
