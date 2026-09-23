@@ -6,6 +6,7 @@ import {
   toRial,
   toToman,
   useEnglishDigits,
+  useJalaliDate,
   usePersianDigits,
 } from "../src/react/index.js";
 
@@ -23,6 +24,16 @@ function PersianPrice({ value }: { value: string | number }) {
 
 function EnglishPrice({ value }: { value: string | number }) {
   return createElement("output", null, useEnglishDigits(value));
+}
+
+function JalaliDate({
+  date,
+  format,
+}: {
+  date: string | Date | number;
+  format?: string;
+}) {
+  return createElement("output", { "data-date": useJalaliDate(date, format) }, null);
 }
 
 describe("react helpers", () => {
@@ -52,6 +63,83 @@ describe("react helpers", () => {
   it("useEnglishDigits converts Persian digits back to English", () => {
     const html = renderToStaticMarkup(createElement(EnglishPrice, { value: "۱۲۵۰۰" }));
     expect(html).toBe("<output>12500</output>");
+  });
+});
+
+describe("useJalaliDate", () => {
+  const nowruz = new Date(2024, 2, 20); // ۱ فروردین ۱۴۰۳
+  const lastDay = new Date(2025, 2, 20); // ۳۰ اسفند ۱۴۰۳ (leap year day)
+
+  it("formats a Date with the default YYYY/MM/DD pattern", () => {
+    const html = renderToStaticMarkup(createElement(JalaliDate, { date: nowruz }));
+    expect(html).toBe('<output data-date="1403/01/01"></output>');
+  });
+
+  it("accepts ISO strings and Unix timestamps", () => {
+    const byString = renderToStaticMarkup(
+      createElement(JalaliDate, { date: nowruz.toString() }),
+    );
+    const byNumber = renderToStaticMarkup(
+      createElement(JalaliDate, { date: nowruz.getTime() }),
+    );
+    expect(byString).toBe('<output data-date="1403/01/01"></output>');
+    expect(byNumber).toBe('<output data-date="1403/01/01"></output>');
+  });
+
+  it("re-formats when the date changes", () => {
+    const results: string[] = [];
+    function Collector({ date }: { date: string | Date | number }) {
+      results.push(useJalaliDate(date));
+      return createElement("span");
+    }
+    renderToStaticMarkup(createElement(Collector, { date: nowruz }));
+    renderToStaticMarkup(createElement(Collector, { date: lastDay }));
+    expect(results).toEqual(["1403/01/01", "1403/12/30"]);
+  });
+
+  it("re-formats when the format string changes", () => {
+    const results: string[] = [];
+    function Collector({ format }: { format?: string }) {
+      results.push(useJalaliDate(nowruz, format));
+      return createElement("span");
+    }
+    renderToStaticMarkup(createElement(Collector, {}));
+    renderToStaticMarkup(createElement(Collector, { format: "d MMMM YYYY" }));
+    expect(results).toEqual(["1403/01/01", "1 فروردین 1403"]);
+  });
+
+  it("renders Persian month names for MMMM/MMM tokens", () => {
+    const full = renderToStaticMarkup(
+      createElement(JalaliDate, { date: nowruz, format: "d MMMM YYYY" }),
+    );
+    const abbr = renderToStaticMarkup(
+      createElement(JalaliDate, { date: nowruz, format: "YYYY MMM DD" }),
+    );
+    expect(full).toBe('<output data-date="1 فروردین 1403"></output>');
+    expect(abbr).toContain("فروردین");
+  });
+
+  it("handles leap-year boundaries (1403 has an Esfand 30)", () => {
+    const wrap = new Date(2025, 2, 21); // ۱ فروردین ۱۴۰۴
+    const before = new Date(2024, 2, 19); // ۲۹ اسفند ۱۴۰۲
+    const html = renderToStaticMarkup(createElement(JalaliDate, { date: wrap }));
+    const htmlBefore = renderToStaticMarkup(createElement(JalaliDate, { date: before }));
+    expect(html).toBe('<output data-date="1404/01/01"></output>');
+    expect(htmlBefore).toBe('<output data-date="1402/12/29"></output>');
+  });
+
+  it("returns an empty string for invalid and nullish input", () => {
+    const invalid = renderToStaticMarkup(
+      createElement(JalaliDate, { date: new Date("not a date") }),
+    );
+    // @ts-expect-error nullish input is only allowed at runtime
+    const nullish = renderToStaticMarkup(createElement(JalaliDate, { date: null }));
+    const garbage = renderToStaticMarkup(
+      createElement(JalaliDate, { date: "nonsense-string" }),
+    );
+    expect(invalid).toBe('<output data-date=""></output>');
+    expect(nullish).toBe('<output data-date=""></output>');
+    expect(garbage).toBe('<output data-date=""></output>');
   });
 });
 

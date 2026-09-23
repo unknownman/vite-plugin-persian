@@ -1,9 +1,12 @@
-import type { Directive } from "vue";
+import { computed, isRef } from "vue";
+import type { ComputedRef, Directive, MaybeRefOrGetter } from "vue";
+import { formatJalaliSafely } from "../jalali/framework.js";
 import {
   normalizePersianText,
   toEnglishDigits,
   toPersianDigits,
 } from "../text/index.js";
+import type { DateInput } from "../types.js";
 
 export {
   formatCurrency,
@@ -87,4 +90,50 @@ export function usePersianDigits(): {
   normalizePersianText: typeof normalizePersianText;
 } {
   return { toPersianDigits, toEnglishDigits, normalizePersianText };
+}
+
+/**
+ * Resolves a `MaybeRefOrGetter` to its current value, without depending on
+ * `toValue` (which only exists in Vue ≥ 3.3).
+ */
+function resolveMaybeRefOrGetter<T>(source: MaybeRefOrGetter<T>): T {
+  if (typeof source === "function") {
+    return (source as () => T)();
+  }
+  if (isRef(source)) {
+    return source.value;
+  }
+  return source;
+}
+
+/**
+ * `useJalaliDate` — a reactive composable that formats a Gregorian date as a
+ * Jalali (Solar Hijri) string. Accepts a plain value, a `Ref`, or a getter
+ * function for both the date and (optionally) the format string, and stays in
+ * sync with upstream changes.
+ *
+ * Uses the same token syntax as the core `formatJalali` (`YYYY`, `YY`,
+ * `MMMM`, `MMM`, `MM`, `DD`, `d`) with Persian month names; `YYYY/MM/DD` by
+ * default. Invalid or unparseable dates yield `""`.
+ *
+ * @example
+ * ```vue
+ * <script setup>
+ * import { ref } from "vue";
+ * import { useJalaliDate } from "vite-plugin-persian/vue";
+ *
+ * const createdAt = ref(new Date(2024, 2, 20));
+ * const jalaali = useJalaliDate(createdAt, "d MMMM YYYY"); // "۱ فروردین ۱۴۰۳"
+ * </script>
+ * ```
+ */
+export function useJalaliDate(
+  date: MaybeRefOrGetter<DateInput>,
+  formatStr?: MaybeRefOrGetter<string>,
+): ComputedRef<string> {
+  return computed(() => {
+    const value = resolveMaybeRefOrGetter(date);
+    const format = formatStr === undefined ? undefined : resolveMaybeRefOrGetter(formatStr);
+    return formatJalaliSafely(value, format);
+  });
 }

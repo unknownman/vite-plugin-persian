@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { expect, describe, it } from "vitest";
-import { get, writable } from "svelte/store";
+import { get, readable, writable } from "svelte/store";
 import {
   formatCurrency,
   persianDigits,
@@ -8,6 +8,7 @@ import {
   toRial,
   toToman,
   useEnglishDigits,
+  useJalaliDate,
   usePersianDigits,
 } from "../src/svelte/index.js";
 
@@ -136,6 +137,80 @@ describe("persianDigits action", () => {
     el.textContent = "700";
     action.update?.(undefined);
     expect(el.textContent).toBe("۷۰۰");
+  });
+});
+
+describe("useJalaliDate", () => {
+  const nowruz = new Date(2024, 2, 20); // ۱ فروردین ۱۴۰۳
+
+  it("formats a plain date with the default pattern", () => {
+    expect(get(useJalaliDate(nowruz))).toBe("1403/01/01");
+  });
+
+  it("reacts to a writable date store", async () => {
+    const source = writable<Date>(nowruz);
+    const jalaali = useJalaliDate(source);
+    expect(get(jalaali)).toBe("1403/01/01");
+    source.set(new Date(2025, 2, 21)); // ۱ فروردین ۱۴۰۴
+    expect(get(jalaali)).toBe("1404/01/01");
+    source.set(new Date(2024, 2, 19)); // ۲۹ اسفند ۱۴۰۲
+    expect(get(jalaali)).toBe("1402/12/29");
+    await flush();
+  });
+
+  it("reacts to changes in the format string (store and plain)", async () => {
+    const format = writable("YYYY/MM/DD");
+    const jalaali = useJalaliDate(nowruz, format);
+    expect(get(jalaali)).toBe("1403/01/01");
+    format.set("d MMMM YYYY");
+    expect(get(jalaali)).toBe("1 فروردین 1403");
+    format.set("YYYY");
+    expect(get(jalaali)).toBe("1403");
+    expect(get(useJalaliDate(nowruz, "d MMMM YYYY"))).toBe("1 فروردین 1403");
+    await flush();
+  });
+
+  it("reacts when both the date and the format update", async () => {
+    const source = writable<Date>(nowruz);
+    const format = writable("YYYY/MM/DD");
+    const jalaali = useJalaliDate(source, format);
+    expect(get(jalaali)).toBe("1403/01/01");
+    source.set(new Date(2025, 2, 20)); // ۳۰ اسفند ۱۴۰۳ (leap day)
+    format.set("DD MMMM YYYY");
+    expect(get(jalaali)).toBe("30 اسفند 1403");
+    await flush();
+  });
+
+  it("works with an already-reactive readable date", () => {
+    const jalaali = useJalaliDate(readable(nowruz), "YYYY");
+    expect(get(jalaali)).toBe("1403");
+  });
+
+  it("handles leap-year boundaries (1403 has an Esfand 30)", () => {
+    expect(get(useJalaliDate(new Date(2025, 2, 20), "DD MMMM YYYY"))).toBe("30 اسفند 1403");
+    expect(get(useJalaliDate(new Date(2025, 2, 21), "d YYYY"))).toBe("1 1404");
+  });
+
+  it("returns an empty string for invalid, nullish, and garbage input", () => {
+    expect(get(useJalaliDate(new Date("not a date")))).toBe("");
+    // @ts-expect-error nullish input is only allowed at runtime
+    expect(get(useJalaliDate(null))).toBe("");
+    expect(get(useJalaliDate("nonsense-string"))).toBe("");
+  });
+
+  it("unsubscribes cleanly from both stores", async () => {
+    const source = writable<Date>(nowruz);
+    const format = writable("YYYY/MM/DD");
+    const jalaali = useJalaliDate(source, format);
+    const seen: string[] = [];
+    const unsub = jalaali.subscribe((value) => seen.push(value));
+    await flush();
+    source.set(new Date(2025, 2, 21));
+    await flush();
+    unsub();
+    format.set("YYYY");
+    await flush();
+    expect(seen).toEqual(["1403/01/01", "1404/01/01"]);
   });
 });
 

@@ -22,7 +22,9 @@
  * ```
  */
 import { derived, readable, type Readable } from "svelte/store";
+import { formatJalaliSafely } from "../jalali/framework.js";
 import { toEnglishDigits, toPersianDigits } from "../text/index.js";
+import type { DateInput } from "../types.js";
 
 export {
   formatCurrency,
@@ -55,9 +57,9 @@ export interface PersianDigitsActionReturn {
  * Normalizes any accepted source into a `Readable`, so it can be fed into
  * `derived` uniformly (a plain value becomes a static store).
  */
-function toReadable(source: PersianDigitsSource): Readable<string | number> {
+function toReadable<T>(source: T | Readable<T>): Readable<T> {
   if (typeof source === "object" && source !== null && "subscribe" in source) {
-    return source as Readable<string | number>;
+    return source as Readable<T>;
   }
   return readable(source);
 }
@@ -96,6 +98,50 @@ export function usePersianDigits(source: PersianDigitsSource): Readable<string> 
  */
 export function useEnglishDigits(source: PersianDigitsSource): Readable<string> {
   return derived(toReadable(source), (value) => toEnglishDigits(value));
+}
+
+/**
+ * Value accepted by `useJalaliDate`: a Gregorian date (`Date`, ISO string,
+ * or Unix timestamp), or a reactive `Readable` that drives updates.
+ */
+export type JalaliDateSource = DateInput | Readable<DateInput>;
+
+/**
+ * Reactively formats a Gregorian date as a Jalali (Solar Hijri) string.
+ *
+ * Pass a plain date for a one-shot conversion, or a `Readable` from
+ * `svelte/store` (e.g. a `writable` bound to a picker) to keep reacting to
+ * changes. The format string may also be a `Readable`. Uses the same token
+ * syntax as the core `formatJalali` (`YYYY`, `YY`, `MMMM`, `MMM`, `MM`,
+ * `DD`, `d`) with Persian month names; `YYYY/MM/DD` by default. Invalid or
+ * unparseable dates yield `""`.
+ *
+ * @example
+ * ```svelte
+ * <script>
+ *   import { writable } from "svelte/store";
+ *   import { useJalaliDate } from "vite-plugin-persian/svelte";
+ *
+ *   const createdAt = writable(new Date(2024, 2, 20));
+ *   const jalaali = useJalaliDate(createdAt, "d MMMM YYYY");
+ * </script>
+ * <span>{$jalaali}</span> <!-- ۱ فروردین ۱۴۰۳ -->
+ * ```
+ */
+export function useJalaliDate(
+  source: JalaliDateSource,
+  formatStr?: string | Readable<string>,
+): Readable<string> {
+  const dateStore = toReadable(source);
+  const formatStore: Readable<string | undefined> =
+    formatStr === undefined
+      ? readable(undefined as string | undefined)
+      : typeof formatStr === "string"
+        ? readable(formatStr)
+        : formatStr;
+  return derived([dateStore, formatStore], ([date, format]) =>
+    formatJalaliSafely(date, format),
+  );
 }
 
 /** Form controls whose displayed digits live in `.value`, not text. */
