@@ -32,7 +32,7 @@ const INDEX_HTML_LTR = `<!doctype html>
 /** Imports every legacy feature and records results on `globalThis`. */
 const FULL_SURFACE_MAIN_TS = `
 import { formatJalali, toJalali, toGregorian, isLeapJalaliYear, getMonthName } from "virtual:persian/jalali";
-import { toPersianDigits, toEnglishDigits, normalizePersianText } from "virtual:persian/text";
+import { toPersianDigits, toEnglishDigits, normalizePersianText, toToman, toRial, formatCurrency } from "virtual:persian/text";
 import { toJalali as mainToJalali } from "virtual:persian";
 (globalThis as any).__PERSIAN_RESULT__ = JSON.stringify({
   year: formatJalali(new Date(2024, 2, 20), "YYYY/MM/DD"),
@@ -45,8 +45,29 @@ import { toJalali as mainToJalali } from "virtual:persian";
   english: toEnglishDigits("۲۰۲۴"),
   norm: normalizePersianText("يك   تست"),
   mainJy: mainToJalali(new Date(2024, 2, 20)).year,
+  tmn: toToman("10000"),
+  rl: toRial(1000),
+  fmtFa: formatCurrency(12500000),
+  fmtEn: formatCurrency(12500000, { digits: "english" }),
 });
 `;
+
+const EXPECTED_FULL_SURFACE = JSON.stringify({
+  year: "1403/01/01",
+  jy: 1403,
+  gy: 2024,
+  leap: true,
+  monthFa: "فروردین",
+  monthEn: "Dey",
+  digits: "۲۰۲۴",
+  english: "2024",
+  norm: "یک تست",
+  mainJy: 1403,
+  tmn: 1000,
+  rl: 10000,
+  fmtFa: "۱۲٬۵۰۰٬۰۰۰ تومان",
+  fmtEn: "12,500,000 تومان",
+});
 
 /** Imports only the Jalali module — used for the tree-shaking assertions. */
 const JALALI_ONLY_MAIN_TS = `
@@ -61,19 +82,6 @@ const TEXT_ONLY_MAIN_TS = `
 import { toPersianDigits } from "virtual:persian/text";
 (globalThis as any).__PERSIAN_RESULT__ = toPersianDigits("2024");
 `;
-
-const EXPECTED_FULL_SURFACE = JSON.stringify({
-  year: "1403/01/01",
-  jy: 1403,
-  gy: 2024,
-  leap: true,
-  monthFa: "فروردین",
-  monthEn: "Dey",
-  digits: "۲۰۲۴",
-  english: "2024",
-  norm: "یک تست",
-  mainJy: 1403,
-});
 
 async function writeFixture({
   html = INDEX_HTML,

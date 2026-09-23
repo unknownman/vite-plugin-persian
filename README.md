@@ -9,6 +9,7 @@ A lightweight, framework-agnostic Vite plugin for Persian (Farsi) projects. It s
 - **RTL-ready HTML** — automatically sets `lang="fa"` and `dir="rtl"` on your `<html>` tag (both overridable).
 - **Jalali (Persian / Solar Hijri) dates** — `formatJalali`, `toJalali`, `toGregorian`, `isLeapJalaliYear`, `getMonthName` with Persian or English month names.
 - **Persian digits** — convert to/from Persian numerals (`۰۱۲۳۴۵۶۷۸۹`) and normalize Persian text.
+- **Toman / Rial currency helpers** — `toToman`, `toRial`, and `formatCurrency` with Persian/English digits and thousands separators.
 - **Tree-shakeable** — only the engine you pick (`jalaali-js` by default, or `intl`) is bundled; the other is dropped.
 - **Zero runtime dependencies** — `jalaali-js` is compiled directly into the package.
 - **TypeScript-first** — virtual modules ship with types, `react`/`vue` helpers are fully typed.
@@ -110,6 +111,22 @@ toPersianDigits("1,250,000");       // "۱,۲۵۰,۰۰۰"
 toEnglishDigits("۱۲۵۰۰");           // "12500"
 normalizePersianText("يك   تست");   // "یک تست"
 ```
+
+#### Currency utilities (Toman / Rial)
+
+```ts
+import { toToman, toRial, formatCurrency } from "virtual:persian/text";
+
+toToman(10000);        // 1000   (Rial → Toman, ÷ 10)
+toRial(1000);          // 10000  (Toman → Rial, × 10)
+
+formatCurrency(12500000);                          // "۱۲٬۵۰۰٬۰۰۰ تومان"
+formatCurrency(12500000, { digits: "english" });   // "12,500,000 تومان"
+formatCurrency(2500000, { unit: "ریال" });         // "۲٬۵۰۰٬۰۰۰ ریال"
+formatCurrency(12500, { separator: false });       // "۱۲۵۰۰ تومان"
+```
+
+`toToman`/`toRial` accept English or Persian/Arabic digits (with or without separators) and return `NaN` for invalid input. `formatCurrency` accepts `unit: "تومان" | "ریال"`, `digits: "persian" | "english"`, and `separator: boolean` and returns `""` for invalid input.
 
 ### `virtual:persian` — everything at once
 

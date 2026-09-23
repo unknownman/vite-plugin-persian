@@ -1,7 +1,9 @@
 import { normalizePersianText, toEnglishDigits, toPersianDigits } from "./runtime.js";
+import { formatCurrency, toRial, toToman } from "./currency.js";
 import type { TextVirtualModule } from "../types.js";
 
 export { normalizePersianText, toEnglishDigits, toPersianDigits } from "./runtime.js";
+export { formatCurrency, toRial, toToman } from "./currency.js";
 
 /**
  * Builds the `virtual:persian/text` module surface.
@@ -10,7 +12,7 @@ export { normalizePersianText, toEnglishDigits, toPersianDigits } from "./runtim
  * later be instantiated per-plugin instance without global state.
  */
 export function createTextModule(): TextVirtualModule {
-  return { toPersianDigits, toEnglishDigits, normalizePersianText };
+  return { toPersianDigits, toEnglishDigits, normalizePersianText, toToman, toRial, formatCurrency };
 }
 
 /**

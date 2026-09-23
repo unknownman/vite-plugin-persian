@@ -102,7 +102,7 @@ export function persian(options: PersianOptions = {}): Plugin {
       if (id === `\0${VIRTUAL_TEXT}`) {
         assertEnabled("text", "virtual:persian/text", resolved);
         return [
-          `export { toPersianDigits, toEnglishDigits, normalizePersianText }`,
+          `export { toPersianDigits, toEnglishDigits, normalizePersianText, toToman, toRial, formatCurrency }`,
           `  from ${JSON.stringify(METHODS_SPECIFIER)};`,
         ].join("\n");
       }

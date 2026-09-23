@@ -36,9 +36,12 @@ declare module "virtual:persian/jalali" {
 
 declare module "virtual:persian/text" {
   import type {
+    FormatCurrency,
     NormalizePersianText,
     ToEnglishDigits,
     ToPersianDigits,
+    ToRial,
+    ToToman,
   } from "vite-plugin-persian";
 
   /** Converts digits to Persian/Extended Arabic-Indic numerals. */
@@ -47,6 +50,12 @@ declare module "virtual:persian/text" {
   export const toEnglishDigits: ToEnglishDigits;
   /** Normalizes Persian characters and collapses whitespace. */
   export const normalizePersianText: NormalizePersianText;
+  /** Converts a Rial figure to Toman (÷ 10). */
+  export const toToman: ToToman;
+  /** Converts a Toman figure to Rial (× 10). */
+  export const toRial: ToRial;
+  /** Renders an amount with a currency unit. */
+  export const formatCurrency: FormatCurrency;
 }
 
 declare module "virtual:persian" {
@@ -59,8 +68,11 @@ declare module "virtual:persian" {
   } from "virtual:persian/jalali";
 
   export {
+    formatCurrency,
     normalizePersianText,
     toEnglishDigits,
     toPersianDigits,
+    toRial,
+    toToman,
   } from "virtual:persian/text";
 }

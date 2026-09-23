@@ -5,6 +5,7 @@
  * `npm run typecheck`.
  */
 import type {
+  FormatCurrency,
   FormatJalali,
   GetMonthName,
   IsLeapJalaliYear,
@@ -13,6 +14,8 @@ import type {
   ToGregorian,
   ToJalali,
   ToPersianDigits,
+  ToRial,
+  ToToman,
 } from "../src/index.js";
 import {
   createJalaliModule,
@@ -37,6 +40,9 @@ const _assertGetMonthName: GetMonthName = jalali.getMonthName;
 const _assertToPersianDigits: ToPersianDigits = text.toPersianDigits;
 const _assertToEnglishDigits: ToEnglishDigits = text.toEnglishDigits;
 const _assertNormalizePersianText: NormalizePersianText = text.normalizePersianText;
+const _assertToToman: ToToman = text.toToman;
+const _assertToRial: ToRial = text.toRial;
+const _assertFormatCurrency: FormatCurrency = text.formatCurrency;
 
 // The main module re-exports everything from both sub-modules.
 const _mainJalali: FormatJalali = main.formatJalali;
@@ -52,7 +58,8 @@ const _boundFormat: FormatJalali = _bound.formatJalali;
 // and mark the assertions as used to silence the linter.
 void _assertFormatJalali, _assertToJalali, _assertToGregorian, _assertIsLeapJalaliYear,
   _assertGetMonthName, _assertToPersianDigits, _assertToEnglishDigits,
-  _assertNormalizePersianText, _mainJalali, _mainText, _calendar, _engineName,
+  _assertNormalizePersianText, _assertToToman, _assertToRial, _assertFormatCurrency,
+  _mainJalali, _mainText, _calendar, _engineName,
   _bound, _boundFormat;
 
 export {};

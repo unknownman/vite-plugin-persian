@@ -125,6 +125,58 @@ export type ToEnglishDigits = (value: string | number) => string;
 export type NormalizePersianText = (value: string) => string;
 
 /**
+ * Currency unit appended by `formatCurrency`.
+ */
+export type CurrencyUnit = "تومان" | "ریال";
+
+/**
+ * Numeral system rendered by `formatCurrency`.
+ */
+export type CurrencyDigitMode = "persian" | "english";
+
+/**
+ * Options for `formatCurrency`.
+ */
+export interface CurrencyFormatOptions {
+  /**
+   * Currency unit to append to the output.
+   * @default 'تومان'
+   */
+  unit?: CurrencyUnit;
+  /**
+   * Numeral system used for the rendered digits.
+   * @default 'persian'
+   */
+  digits?: CurrencyDigitMode;
+  /**
+   * Insert thousands-group separators.
+   * @default true
+   */
+  separator?: boolean;
+}
+
+/**
+ * Converts a Rial figure (as given) to Toman (÷ 10).
+ * Invalid input yields `NaN`.
+ */
+export type ToToman = (amount: string | number) => number;
+
+/**
+ * Converts a Toman figure (as given) to Rial (× 10).
+ * Invalid input yields `NaN`.
+ */
+export type ToRial = (amount: string | number) => number;
+
+/**
+ * Renders an amount with a currency unit, choosing the numeral system and
+ * grouping behaviour. Invalid input yields an empty string.
+ */
+export type FormatCurrency = (
+  amount: string | number,
+  options?: CurrencyFormatOptions,
+) => string;
+
+/**
  * The functions exposed by the `virtual:persian/text` module.
  */
 export interface TextVirtualModule {
@@ -134,6 +186,12 @@ export interface TextVirtualModule {
   toEnglishDigits: ToEnglishDigits;
   /** Normalizes Persian characters and whitespace. */
   normalizePersianText: NormalizePersianText;
+  /** Converts a Rial figure to Toman (÷ 10). */
+  toToman: ToToman;
+  /** Converts a Toman figure to Rial (× 10). */
+  toRial: ToRial;
+  /** Renders an amount with a currency unit. */
+  formatCurrency: FormatCurrency;
 }
 
 /**

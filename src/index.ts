@@ -24,4 +24,10 @@ export type {
   ToEnglishDigits,
   NormalizePersianText,
   TextVirtualModule,
+  CurrencyUnit,
+  CurrencyDigitMode,
+  CurrencyFormatOptions,
+  ToToman,
+  ToRial,
+  FormatCurrency,
 } from "./types.js";
