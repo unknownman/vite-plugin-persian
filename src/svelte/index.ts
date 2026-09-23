@@ -25,6 +25,7 @@ import { derived, readable, type Readable } from "svelte/store";
 import { formatJalaliSafely } from "../jalali/framework.js";
 import { applyPersianInputTransform } from "../text/input.js";
 import { resolvePersianInputTransform } from "../text/normalization.js";
+import { toPersianSlug } from "../text/slug.js";
 import {
   isMobileNumber,
   isNationalCode,
@@ -32,7 +33,12 @@ import {
   toNumberWords,
   toPersianDigits,
 } from "../text/index.js";
-import type { DateInput, PersianInputOptions, PersianTextTransform } from "../types.js";
+import type {
+  DateInput,
+  PersianInputOptions,
+  PersianTextTransform,
+  SlugOptions,
+} from "../types.js";
 
 export {
   adjustSelection,
@@ -49,6 +55,7 @@ export {
   toEnglishDigits,
   toNumberWords,
   toPersianDigits,
+  toPersianSlug,
   toRial,
   toToman,
 } from "../text/index.js";
@@ -59,6 +66,7 @@ export type {
   PersianInputOptions,
   PersianSelection,
   PersianTextTransform,
+  SlugOptions,
   TextNormalizationOptions,
 } from "../types.js";
 
@@ -224,6 +232,37 @@ export function useNumberWords(
   num: number | string | Readable<number | string>,
 ): Readable<string> {
   return derived(toReadable(num), (value) => toNumberWords(value));
+}
+
+/**
+ * Value accepted by `usePersianSlug`: a plain title string, or a reactive
+ * `Readable` (from `svelte/store`) that drives slug updates.
+ */
+export type PersianSlugSource = string | null | undefined | Readable<string | null | undefined>;
+
+/**
+ * Reactively derives a clean, SEO-friendly slug from a title. Pass a plain
+ * string for a one-shot conversion, or a `Readable` (e.g. a `writable` bound
+ * to a title input) to keep the slug in sync.
+ *
+ * @example
+ * ```svelte
+ * <script>
+ *   import { writable } from "svelte/store";
+ *   import { usePersianSlug } from "vite-plugin-persian/svelte";
+ *
+ *   const title = writable("«آموزش جامع Vite (نسخه جدید) - بخش ۱!»");
+ *   const slug = usePersianSlug(title); // "آموزش-جامع-vite-نسخه-جدید-بخش-۱"
+ * </script>
+ * <input bind:value={$title} placeholder="عنوان مقاله" />
+ * <span>پیش‌نمایش: {$slug}</span>
+ * ```
+ */
+export function usePersianSlug(
+  source: PersianSlugSource,
+  options?: SlugOptions,
+): Readable<string> {
+  return derived(toReadable(source), (value) => toPersianSlug(value ?? "", options));
 }
 
 /** Form controls whose displayed digits live in `.value`, not text. */

@@ -48,6 +48,7 @@ declare module "virtual:persian/text" {
     ToEnglishDigits,
     ToNumberWords,
     ToPersianDigits,
+    ToPersianSlug,
     ToRial,
     ToToman,
   } from "vite-plugin-persian";
@@ -80,6 +81,8 @@ declare module "virtual:persian/text" {
   export const normalizePersianInput: NormalizePersianInput;
   /** Builds a reusable normalized-input transform (v0.4.0). */
   export const createTextTransform: CreateTextTransform;
+  /** Generates a clean, URL-safe, SEO-optimized slug (v0.4.0). */
+  export const toPersianSlug: ToPersianSlug;
 }
 
 declare module "virtual:persian" {
@@ -104,6 +107,7 @@ declare module "virtual:persian" {
     toEnglishDigits,
     toNumberWords,
     toPersianDigits,
+    toPersianSlug,
     toRial,
     toToman,
   } from "virtual:persian/text";

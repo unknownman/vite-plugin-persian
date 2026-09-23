@@ -285,4 +285,11 @@ describe("textModule", () => {
     expect(textModule.createTextTransform({ digits: "english" })("۱۲۳")).toBe("123");
     expect(createTextModule().sanitizePersianText("ك")).toBe("ک");
   });
+
+  it("exposes the v0.4.0 slug generator", () => {
+    expect(textModule.toPersianSlug("«آموزش جامع Vite (نسخه جدید) - بخش ۱!»")).toBe(
+      "آموزش-جامع-vite-نسخه-جدید-بخش-۱",
+    );
+    expect(createTextModule().toPersianSlug("سلام دنیا", { separator: "_" })).toBe("سلام_دنیا");
+  });
 });

@@ -294,6 +294,33 @@ export type NormalizePersianInput = (
 export type CreateTextTransform = (options?: TextNormalizationOptions) => PersianTextTransform;
 
 /**
+ * Options for {@link ToPersianSlug}.
+ */
+export interface SlugOptions {
+  /**
+   * Lowercase English letters in the slug (`"Vite"` → `"vite"`). Persian
+   * letters are unaffected.
+   * @default true
+   */
+  lowercase?: boolean;
+  /**
+   * Word-boundary separator emitted between tokens (must be non-empty).
+   * @default '-'
+   */
+  separator?: string;
+}
+
+/**
+ * Generates a clean, URL-safe, SEO-optimized slug from Persian/English text:
+   - Keeps Persian letters, English letters, and digits intact.
+   - Rewrites every other character (spaces, punctuation, currency signs,
+     ZWNJ, emojis, …) into a single `separator`, trimming leading/trailing
+     runs.
+   - Drops Arabic typography (harakat, tatweel) instead of separating on them.
+ */
+export type ToPersianSlug = (text: string, options?: SlugOptions) => string;
+
+/**
  * The subset of an editable element the input formatter reads/writes. Kept as
  * a structural interface so it works with `HTMLInputElement`,
  * `HTMLTextAreaElement`, and plain test doubles alike.
@@ -339,6 +366,8 @@ export interface TextVirtualModule {
   normalizePersianInput: NormalizePersianInput;
   /** Builds a reusable normalized-input transform (`v0.4.0`). */
   createTextTransform: CreateTextTransform;
+  /** Generates a clean, URL-safe, SEO-optimized slug (`v0.4.0`). */
+  toPersianSlug: ToPersianSlug;
   /** Converts a Rial figure to Toman (÷ 10). */
   toToman: ToToman;
   /** Converts a Toman figure to Rial (× 10). */

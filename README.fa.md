@@ -1,6 +1,6 @@
 # vite-plugin-persian
 
-پلاگین سبک و مستقل از فریمورکِ Vite برای پروژه‌های فارسی. این پلاگین تنظیمات لازم برای **راست‌به‌چپ (RTL)** را روی HTML شما اعمال می‌کند و ابزارهای مبتنی بر تایپ را در اختیارتان می‌گذارد: تاریخ **جلالی (شمسی)**، تبدیل **اعداد فارسی و انگلیسی**، قالب‌بندی **پول (تومان و ریال)**، اعتبارسنجی **کد ملی و شماره موبایل ایرانی** و **تبدیل عدد به حروف** — همگی از طریق ماژول‌های مجازیِ بدون وابستگیِ زمان اجرا (zero runtime deps) با پشتیبانی اختیاری از React، Vue و Svelte.
+پلاگین سبک و مستقل از فریمورکِ Vite برای پروژه‌های فارسی. این پلاگین تنظیمات لازم برای **راست‌به‌چپ (RTL)** را روی HTML شما اعمال می‌کند و ابزارهای مبتنی بر تایپ را در اختیارتان می‌گذارد: تاریخ **جلالی (شمسی)**، تبدیل **اعداد فارسی و انگلیسی**، قالب‌بندی **پول (تومان و ریال)**، اعتبارسنجی **کد ملی و شماره موبایل ایرانی**، **تبدیل عدد به حروف**، **قالب‌بندی زندهٔ فیلدهای ورودی همراه با حفظ مکان‌نما (caret)** و **تولید اسلاگ فارسی مناسب سئو** — همگی از طریق ماژول‌های مجازیِ بدون وابستگیِ زمان اجرا (zero runtime deps) با پشتیبانی اختیاری از React، Vue و Svelte.
 
 > Vite ۵ • ۶ • ۷ • ۸ — Node نسخه ۱۸ و بالاتر — پشتیبانی از ESM و CJS
 
@@ -16,6 +16,8 @@
 - **ابزارهای پول** — توابع `toToman`، `toRial` و `formatCurrency` با ارقام فارسی/انگلیسی و جداکنندهٔ هزارگان.
 - **اعتبارسنجی کد ملی و موبایل ایرانی** — تابع `isNationalCode` (بر اساس الگوریتم رسمی ۱۰ رقمی) و توابع `isMobileNumber`/`normalizeMobileNumber` (برای قالب استاندارد `09xxxxxxxxx`).
 - **تبدیل عدد به حروف فارسی** — تابع `toNumberWords` برای اعداد بسیار بزرگ بدون خطای دقت (بر پایهٔ BigInt، تا ۱۰۲۴)، همراه با اعداد اعشاری: `۱۲۵۰۰ → «دوازده هزار و پانصد»`.
+- **قالب‌بندی فیلدهای ورودی** (نسخه ۰.۴.۰) — نرمال‌سازی زندهٔ Persian برای `<input>`/`<textarea>` (یکسان‌سازی حروف عربی، نیم‌فاصله، ارقام) با **حفظ خودکار موقعیت مکان‌نما (caret) حین تایپ**: `v-persian-input` (Vue)، `usePersianInput` (React) و `use:persianInput` (Svelte).
+- **تولید اسلاگ فارسی مناسب سئو** (نسخه ۰.۴.۰) — تابع `toPersianSlug` متن ترکیبی فارسی/انگلیسی را به اسلاگ تمیز و URL-safe تبدیل می‌کند (`«آموزش جامع Vite (نسخه جدید) - بخش ۱!»` → `آموزش-جامع-vite-نسخه-جدید-بخش-۱`) و نشانه‌های نامرئی خط عربی (اعراب، کشیده و…) را هوشمندانه حذف می‌کند. به‌همراه هوک واکنش‌گرای `usePersianSlug`.
 - **هوک‌های فریمورک-محور** — `useJalaliDate`، `useNationalCode`، `useMobileNumber`، `useNumberWords` و `usePersianDigits` برای React، Vue و Svelte.
 - **قابل tree-shaking** — فقط موتوری که انتخاب می‌کنید (`jalaali-js` به‌صورت پیش‌فرض یا `intl`) باندل می‌شود و موتور دیگر حذف می‌ماند.
 - **بدون وابستگی زمان اجرا** — `jalaali-js` به‌صورت مستقیم داخل پکیج کامپایل می‌شود.
@@ -213,6 +215,154 @@ persian({
 
 همین کامنت بلافاصله قبل از یک اعلامیه هم کار می‌کند، و به‌عنوان اولین نشانهٔ یک فایل، تبدیل کل فایل را غیرفعال می‌کند (مگر اینکه مستقیماً از قاعدهٔ اول فایل محافظت کند).
 
+## قالب‌بندی فیلدهای ورودی (نسخه ۰.۴.۰)
+
+نرمال‌سازی زندهٔ فارسی و حساس به مکان‌نما (caret) برای عناصر `<input>`/`<textarea>`. هنگام تایپ کاربر، خط لولهٔ متن — یکسان‌سازی حروف عربی به فارسی، اصلاح نیم‌فاصله و تبدیل ارقام — روی هر ضربهٔ کلید و paste اجرا می‌شود و **مکان‌نما (کرسور) دقیقاً همان‌جا که بود باقی می‌ماند**، حتی اگر مقدار وسط فیلد بازنویسی شود. تبدیل فقط شامل جایگزینی‌های ۱ به ۱ یا حذف خالص است؛ همین ویژگی است که حفظ دقیق مکان‌نما را ممکن می‌کند.
+
+هر فریمورک یک ابزار آماده ارائه می‌دهد:
+
+| فریمورک | ابزار              | نحوهٔ استفاده                                      |
+| ------- | ------------------ | --------------------------------------------------- |
+| Vue     | `vPersianInput`    | `<input v-model="name" v-persian-input />`          |
+| React   | `usePersianInput`  | `const input = usePersianInput(); <input {...input} />` |
+| Svelte  | `persianInput`     | `<input bind:value use:persianInput />`             |
+
+هر سه گزینه‌های یکسانی می‌پذیرند:
+
+| گزینه         | نوع                        | پیش‌فرض       | توضیح                                                         |
+| ------------- | --------------------------- | ------------- | ------------------------------------------------------------- |
+| `sanitize`    | `boolean`                   | `true`        | تبدیل `ي`/`ى` عربی به `ی` و `ك` عربی به `ک`.                   |
+| `halfSpaces`  | `boolean`                   | `true`        | درج/اصلاح نیم‌فاصله (ZWNJ) برای پیوندهای `می`/`نمی`/`ها`/`های`/`تر`/`ترین` — `"می شود"` → `"می‌شود"`. |
+| `digits`      | `"persian" \| "english" \| "none"` | `"persian"`  | سیستم عددی اعمال‌شده بر ارقام تایپ‌شده.                       |
+| `transform`   | `(text: string) => string`  | —             | جایگزینی کل خط لوله با تبدیل دلخواه شما (سایر گزینه‌ها نادیده گرفته می‌شوند). |
+| `initialValue`| `string`                    | `""`          | مقدار اولیهٔ فیلد در اولین رندر (`usePersianInput`).           |
+
+> **Vue** — دایرکتیو `v-persian-input` شنوندهٔ خود را در هوک `created` ثبت می‌کند، بنابراین *پیش از* هندلر `v-model` در همان رویداد اجرا می‌شود. مدل همیشه مقدار پاک‌شده را دریافت می‌کند — بدون commit دوباره، بدون پرش تصویری (flicker)، و با بازگردانی مکان‌نما در همان‌جا.
+>
+> **React** — `usePersianInput` یک هوک کنترل‌شده است: هر ضربهٔ کلید و هر paste رهگیری می‌شود، مقدار خام `e.target.value` پیش از آن‌که React state ببیند نرمال می‌شود، DOM به‌صورت هم‌زمان اصلاح و مکان‌نما بازگردانی می‌شود (با یک effect در فاز رندر به‌عنوان شبکهٔ ایمنی).
+>
+> **Svelte** — `use:persianInput` در رویداد `input` نرمال می‌کند، مکان‌نما را بازمی‌گرداند و فقط وقتی مقدار واقعاً تغییر کرده رویداد `input` را دوباره dispatch می‌کند تا `bind:value` در همان ضربهٔ کلید مقدار پاک‌شده را بگیرد و حلقهٔ رویدادی ایجاد نشود.
+
+### Vue — `v-persian-input`
+
+ثبت سراسری (`app.directive("persian-input", vPersianInput)`) یا per-component (`directives: { persianInput: vPersianInput }`):
+
+```vue
+<script setup>
+import { vPersianInput } from "vite-plugin-persian/vue"; // یا از طریق app.directive
+import { ref } from "vue";
+const name = ref("");
+const bio = ref("");
+</script>
+
+<template>
+  <!-- پیش‌فرض‌ها: sanitize + نیم‌فاصله + ارقام فارسی -->
+  <input v-model="name" v-persian-input />
+
+  <!-- همهٔ گزینه‌ها قابل تغییرند؛ یا با `false` نرمال‌سازی را غیرفعال کنید -->
+  <textarea v-model="bio" v-persian-input="{ halfSpaces: false, digits: 'english' }" />
+</template>
+```
+
+### React — `usePersianInput`
+
+```tsx
+import { usePersianInput } from "vite-plugin-persian/react";
+
+function PersianField() {
+  const input = usePersianInput({ digits: "persian" });
+  return <input {...input} placeholder="متن فارسی" />;
+}
+```
+
+### Svelte — `use:persianInput`
+
+```svelte
+<script lang="ts">
+  import { persianInput } from "vite-plugin-persian/svelte";
+  let name = "";
+</script>
+
+<input bind:value={name} use:persianInput />
+```
+
+### خط لولهٔ ساده (بدون DOM)
+
+همان موتور بدون وابستگی DOM نیز در دسترس است و در هر جایی کار می‌کند — از جمله نرمال‌سازی یک‌باره روی رشته‌های دلخواه:
+
+```ts
+import {
+  normalizePersianInput,
+  createTextTransform,
+  sanitizePersianText,
+  normalizeHalfSpaces,
+} from "virtual:persian/text";
+
+normalizePersianInput("می شود 1، را 2");        // "می‌شود ۱، را ۲"
+normalizePersianInput("يک متن", { sanitize: false }); // "يک متن"
+
+const transform = createTextTransform({ halfSpaces: false }); // قابل استفادهٔ دوباره
+transform("می شود");                            // "می شود"
+
+sanitizePersianText("يك");                      // "یک"
+normalizeHalfSpaces("می شود");                  // "می‌شود"
+```
+
+## تولید اسلاگ فارسی مناسب سئو (نسخه ۰.۴.۰)
+
+تابع `toPersianSlug` یک عنوان فارسی/انگلیسی را به اسلاگ تمیز، URL-safe و بهینه برای موتورهای جستجو تبدیل می‌کند. این تابع توکن‌های چندزبانه و ویژگی‌های خط عربی را درک می‌کند:
+
+- **حفظ** حروف فارسی، حروف انگلیسی و ارقام (اعم از فارسی *و* عربی-هندی) — بنابراین `۱۴۰۳` همان `۱۴۰۳` می‌ماند و `19` همان `19`.
+- **بازنویسی** هر کاراکتر دیگر — فاصله، `_`، `-` موجود، علائم نگارشی، نشانه‌های ارز، ZWNJ، ایموجی — به یک جداکنندهٔ واحد بین واژه‌ها، با ادغام تکرارها و حذف جداکننده‌های ابتدا و انتها.
+- **حذف تایپوگرافی نامرئی عربی/فارسی** — اعراب (U+064B–U+065F)، کشیده `ـ` (U+0640)، الف ممدودهٔ بالانویس، نشانه‌های جهت‌نما و نشانه‌های قرآن‌شناختی — به‌صورت *حذف* به‌جای جداکردن: `"دَست"` → `"دست"`، اما ZWNJ همچنان مرز واژه محسوب می‌شود: `"می‌خواهم"` → `"می-خواهم"`.
+- **پشتیبانی روان از متن ترکیبی**:
+
+```ts
+import { toPersianSlug } from "virtual:persian/text";
+
+toPersianSlug("«آموزش جامع Vite (نسخه جدید) - بخش ۱!»");
+// "آموزش-جامع-vite-نسخه-جدید-بخش-۱"
+
+toPersianSlug("سلام   دنیا!!!",  { separator: "_" });   // "سلام_دنیا"
+toPersianSlug("MIKHAIL",         { lowercase: false });  // "MIKHAIL"
+toPersianSlug("",                                        ) // ""
+```
+
+هوک‌های واکنش‌گرای `usePersianSlug(text, options)` برای هر سه فریمورک:
+
+| فریمورک | امضای تابع                                                | خروجی              |
+| ------- | --------------------------------------------------------- | ------------------ |
+| React   | `usePersianSlug(text: string \| null \| undefined, options?)` | `string`           |
+| Vue     | `usePersianSlug(text: MaybeRefOrGetter<...>, options?)`       | `ComputedRef<string>` |
+| Svelte  | `usePersianSlug(source: string \| Readable<...>, options?)`   | `Readable<string>` |
+
+```tsx
+// React
+const slug = usePersianSlug("«آموزش جامع Vite (نسخه جدید) - بخش ۱!»");
+// "آموزش-جامع-vite-نسخه-جدید-بخش-۱"
+```
+
+```vue
+<!-- Vue -->
+<script setup>
+import { ref } from "vue";
+import { usePersianSlug } from "vite-plugin-persian/vue";
+const title = ref("آموزش جامع Vite");
+const slug = usePersianSlug(title); // ComputedRef<string>
+</script>
+```
+
+```svelte
+<!-- Svelte -->
+<script lang="ts">
+  import { writable } from "svelte/store";
+  import { usePersianSlug } from "vite-plugin-persian/svelte";
+  const title = writable("آموزش جامع Vite");
+  const slug = usePersianSlug(title); // Readable<string>
+</script>
+<span>پیش‌نمایش: {$slug}</span>
+```
+
 ## ماژول‌های مجازی
 
 پلاگین سه ماژول مجازی در اختیار شما قرار می‌دهد. برای دریافت تایپ کامل فقط یک‌بار این خط را به `src/vite-env.d.ts` اضافه کنید (بخش [TypeScript](#typescript) را ببینید):
@@ -243,7 +393,7 @@ getMonthName(10, "en");                        // "Dey"
 
 `formatJalali` از توکن‌های `YYYY`، `YY`، `MMMM`، `MMM`، `MM`، `DD` و `d` پشتیبانی می‌کند و نام ماه‌ها را به فارسی نمایش می‌دهد. تبدیل تاریخ بر اساس اجزای زمان محلی (Local Time) انجام می‌شود.
 
-### `virtual:persian/text` — ارقام، پول، اعتبارسنجی و عدد به حروف
+### `virtual:persian/text` — ارقام، پول، اعتبارسنجی، عدد به حروف، قالب‌بندی ورودی و اسلاگ
 
 #### تبدیل ارقام فارسی و نرمال‌سازی
 
@@ -300,6 +450,17 @@ toNumberWords("1203450000");     // "یک میلیارد و دویست و سه �
 
 این تابع برای اعداد بسیار بزرگ (بر پایهٔ BigInt، تا ۱۰۲۴ یعنی «سپتیلیون»)، اعداد منفی و اعداد اعشاری دقیق است. ورودی نامعتبر مقدار `""` برمی‌گرداند.
 
+#### خط لولهٔ بلادرنگ ورودی و اسلاگ سئو (نسخه ۰.۴.۰)
+
+توابع `sanitizePersianText`، `normalizeHalfSpaces`، `normalizePersianInput` و `createTextTransform` موتور [قالب‌بندی فیلدهای ورودی](#قالببندی-فیلدهای-ورودی-نسخه-۰۴۰) را می‌سازند و `toPersianSlug` هم [اسلاگ‌های سئو](#تولید-اسلاگ-فارسی-مناسب-سئو-نسخه-۰۴۰) را تولید می‌کند — همگی مستقیماً از ماژول متن قابل ایمپورت‌اند:
+
+```ts
+import { normalizePersianInput, toPersianSlug } from "virtual:persian/text";
+
+normalizePersianInput("می شود 1");            // "می‌شود ۱"
+toPersianSlug("آموزش جامع Vite");            // "آموزش-جامع-vite"
+```
+
 ### `virtual:persian` — همهٔ ابزارها یک‌جا
 
 ```ts
@@ -333,6 +494,8 @@ import {
   useNationalCode,
   useMobileNumber,
   useNumberWords,
+  usePersianInput,
+  usePersianSlug,
 } from "vite-plugin-persian/react";
 ```
 
@@ -368,9 +531,20 @@ function PersonForm() {
     </>
   );
 }
+
+function PersianField() {
+  const input = usePersianInput();                // قالب‌بندی فیلد با حفظ مکان‌نما (نسخه ۰.۴.۰)
+  return <input {...input} placeholder="متن فارسی" />;
+}
+
+function ArticleEditor() {
+  const [title] = useState("«آموزش جامع Vite (نسخه جدید) - بخش ۱!»");
+  const slug = usePersianSlug(title);             // "آموزش-جامع-vite-نسخه-جدید-بخش-۱"
+  return <small>slug: {slug}</small>;
+}
 ```
 
-مسیر `vite-plugin-persian/react` همچنین توابع ساده را دوباره صادر می‌کند: `toPersianDigits`، `toEnglishDigits`، `normalizePersianText`، `toToman`، `toRial`، `formatCurrency`، `isNationalCode`، `isMobileNumber`، `normalizeMobileNumber` و `toNumberWords`.
+مسیر `vite-plugin-persian/react` همچنین توابع ساده را دوباره صادر می‌کند: `toPersianDigits`، `toEnglishDigits`، `normalizePersianText`، `sanitizePersianText`، `normalizeHalfSpaces`، `normalizePersianInput`، `createTextTransform`، `toPersianSlug`، `toToman`، `toRial`، `formatCurrency`، `isNationalCode`، `isMobileNumber`، `normalizeMobileNumber` و `toNumberWords`.
 
 ## هیپلپرهای Vue
 
@@ -383,10 +557,13 @@ npm install vue                # نصب dependency ضروری
 ```ts
 // main.ts
 import { createApp } from "vue";
-import { vPersianDigits } from "vite-plugin-persian/vue";
+import { vPersianDigits, vPersianInput } from "vite-plugin-persian/vue";
 import App from "./App.vue";
 
-createApp(App).directive("persian-digits", vPersianDigits).mount("#app");
+createApp(App)
+  .directive("persian-digits", vPersianDigits)
+  .directive("persian-input", vPersianInput)
+  .mount("#app");
 ```
 
 ```vue
@@ -399,6 +576,9 @@ createApp(App).directive("persian-digits", vPersianDigits).mount("#app");
 
   <!-- فیلدهای فرم: .value آن‌ها تبدیل می‌شود -->
   <input v-persian-digits="model" />
+
+  <!-- نسخه ۰.۴.۰: قالب‌بندی زندهٔ فارسی با حفظ مکان‌نما -->
+  <input v-model="name" v-persian-input />
 </template>
 
 <script setup lang="ts">
@@ -408,6 +588,7 @@ import {
   useNationalCode,
   useMobileNumber,
   useNumberWords,
+  usePersianSlug,
 } from "vite-plugin-persian/vue";
 
 const price = ref(12500);
@@ -415,12 +596,13 @@ const jalali = useJalaliDate(new Date(2024, 2, 20), "d MMMM YYYY"); // ComputedR
 const codeValid = useNationalCode("0010042911");                    // ComputedRef<boolean>
 const phoneValid = useMobileNumber("09123456789");                  // ComputedRef<boolean>
 const words = useNumberWords(price);                                // ComputedRef<string>
+const slug = usePersianSlug("آموزش جامع Vite");                     // ComputedRef<string>
 </script>
 ```
 
 کمپوزبل‌ها یک مقدار ساده، یک `Ref` یا یک تابع getter (`MaybeRefOrGetter`) می‌پذیرند و `ComputedRef`های واکنش‌گرا برمی‌گردانند — با تغییر `ref` همگام می‌مانند. تابع `usePersianDigits()` نیز آبجکت `{ toPersianDigits, toEnglishDigits, normalizePersianText }` را به‌صورت توابع ساده برمی‌گرداند.
 
-مسیر `vite-plugin-persian/vue` همچنین توابع ساده را دوباره صادر می‌کند: `toPersianDigits`، `toEnglishDigits`، `normalizePersianText`، `toToman`، `toRial`، `formatCurrency`، `isNationalCode`، `isMobileNumber`، `normalizeMobileNumber` و `toNumberWords`.
+مسیر `vite-plugin-persian/vue` همچنین توابع ساده را دوباره صادر می‌کند: `toPersianDigits`، `toEnglishDigits`، `normalizePersianText`، `sanitizePersianText`، `normalizeHalfSpaces`، `normalizePersianInput`، `createTextTransform`، `toPersianSlug`، `toToman`، `toRial`، `formatCurrency`، `isNationalCode`، `isMobileNumber`، `normalizeMobileNumber` و `toNumberWords`.
 
 ## هیپلپرهای Svelte
 
@@ -439,7 +621,9 @@ npm install svelte              # نصب dependency ضروری
     useNationalCode,
     useMobileNumber,
     useNumberWords,
+    usePersianSlug,
     persianDigits,
+    persianInput,
   } from "vite-plugin-persian/svelte";
 
   export let price: number; // number
@@ -452,21 +636,27 @@ npm install svelte              # نصب dependency ضروری
   const codeValid = useNationalCode(code);   // Readable<boolean>
   const phoneValid = useMobileNumber(phone); // Readable<boolean>
   const words = useNumberWords(writable(12500)); // Readable<string>
+  const slug = usePersianSlug("آموزش جامع Vite");            // Readable<string>
+  const name = writable("");
 </script>
 
 <!-- اَکشن‌ها: مقدار باندشده را تبدیل می‌کنند و هنگام تغییر دوباره اجرا می‌شوند -->
 <span use:persianDigits={price}>{price}</span>
 <input use:persianDigits bind:value />
 
+<!-- نسخه ۰.۴.۰: قالب‌بندی زندهٔ فارسی با حفظ مکان‌نما -->
+<input bind:value={name} use:persianInput />
+
 <!-- خروجی هوک‌ها با سینتکس $ استور واکنش‌گرا است -->
 <span>{$priceFa}</span>
 <span>{$jalaali}</span>
 <span>{$words}</span>
+<span>{$slug}</span>
 ```
 
-توابع `usePersianDigits`، `useEnglishDigits`، `useJalaliDate`، `useNationalCode`، `useMobileNumber` و `useNumberWords` یک مقدار ساده یا هر `Readable` از `svelte/store` می‌پذیرند و `Readable`هایی برمی‌گردانند که به تغییرات واکنش نشان می‌دهند. `persianDigits` یک اکشن استاندارد Svelte با چرخهٔ `update`/`destroy` است.
+توابع `usePersianDigits`، `useEnglishDigits`، `useJalaliDate`، `useNationalCode`، `useMobileNumber`، `useNumberWords` و `usePersianSlug` یک مقدار ساده یا هر `Readable` از `svelte/store` می‌پذیرند و `Readable`هایی برمی‌گردانند که به تغییرات واکنش نشان می‌دهند. `persianDigits` و `persianInput` اَکشن‌های استاندارد Svelte با چرخهٔ `update`/`destroy` هستند.
 
-مسیر `vite-plugin-persian/svelte` همچنین توابع ساده را دوباره صادر می‌کند: `toPersianDigits`، `toEnglishDigits`، `normalizePersianText`، `toToman`، `toRial`، `formatCurrency`، `isNationalCode`، `isMobileNumber`، `normalizeMobileNumber` و `toNumberWords`.
+مسیر `vite-plugin-persian/svelte` همچنین توابع ساده را دوباره صادر می‌کند: `toPersianDigits`، `toEnglishDigits`، `normalizePersianText`، `sanitizePersianText`، `normalizeHalfSpaces`، `normalizePersianInput`، `createTextTransform`، `toPersianSlug`، `toToman`، `toRial`، `formatCurrency`، `isNationalCode`، `isMobileNumber`، `normalizeMobileNumber` و `toNumberWords`.
 
 ## TypeScript
 
@@ -507,6 +697,8 @@ persian({
   experimental: { logicalProperties: { ignore: [".legacy-fixed-sidebar"] } },
 });
 ```
+
+> **گزینه‌های نسخهٔ ۰.۴.۰ در محل استفاده از هیپلپرها هستند، نه در پلاگین.** گزینه‌های قالب‌بندی ورودی (`sanitize`، `halfSpaces`، `digits`، `transform`، `initialValue`) و گزینه‌های اسلاگ (`lowercase`، `separator`) به‌صورت جداگانه به فراخوانی‌های React/Vue/Svelte داده می‌شوند — بخش‌های [قالب‌بندی فیلدهای ورودی](#قالببندی-فیلدهای-ورودی-نسخه-۰۴۰) و [تولید اسلاگ فارسی مناسب سئو](#تولید-اسلاگ-فارسی-مناسب-سئو-نسخه-۰۴۰) را ببینید. به پیکربندی در سطح پلاگین نیازی نیست.
 
 ## نکات و محدودیت‌ها
 

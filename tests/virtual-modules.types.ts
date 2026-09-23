@@ -22,6 +22,7 @@ import type {
   ToJalali,
   ToNumberWords,
   ToPersianDigits,
+  ToPersianSlug,
   ToRial,
   ToToman,
 } from "../src/index.js";
@@ -59,6 +60,7 @@ const _assertSanitizePersianText: SanitizePersianText = text.sanitizePersianText
 const _assertNormalizeHalfSpaces: NormalizeHalfSpaces = text.normalizeHalfSpaces;
 const _assertNormalizePersianInput: NormalizePersianInput = text.normalizePersianInput;
 const _assertCreateTextTransform: CreateTextTransform = text.createTextTransform;
+const _assertToPersianSlug: ToPersianSlug = text.toPersianSlug;
 
 // The main module re-exports everything from both sub-modules.
 const _mainJalali: FormatJalali = main.formatJalali;
@@ -67,6 +69,7 @@ const _mainNationalCode: IsNationalCode = main.isNationalCode;
 const _mainWords: ToNumberWords = main.toNumberWords;
 const _mainHalfSpaces: NormalizeHalfSpaces = main.normalizeHalfSpaces;
 const _mainCreateTextTransform: CreateTextTransform = main.createTextTransform;
+const _mainToPersianSlug: ToPersianSlug = main.toPersianSlug;
 
 // The methods subpath exposes its engine types alongside the engines themselves.
 const _calendar: CalendarEngine = intlEngine;
@@ -81,8 +84,8 @@ void _assertFormatJalali, _assertToJalali, _assertToGregorian, _assertIsLeapJala
   _assertNormalizePersianText, _assertToToman, _assertToRial, _assertFormatCurrency,
   _assertIsNationalCode, _assertIsMobileNumber, _assertNormalizeMobileNumber,
   _assertToNumberWords, _assertSanitizePersianText, _assertNormalizeHalfSpaces,
-  _assertNormalizePersianInput, _assertCreateTextTransform, _mainJalali, _mainText,
-  _mainNationalCode, _mainWords, _mainHalfSpaces, _mainCreateTextTransform,
-  _calendar, _engineName, _bound, _boundFormat;
+  _assertNormalizePersianInput, _assertCreateTextTransform, _assertToPersianSlug, _mainJalali,
+  _mainText, _mainNationalCode, _mainWords, _mainHalfSpaces, _mainCreateTextTransform,
+  _mainToPersianSlug, _calendar, _engineName, _bound, _boundFormat;
 
 export {};

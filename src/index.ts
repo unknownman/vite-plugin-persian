@@ -45,6 +45,8 @@ export type {
   NormalizeHalfSpaces,
   NormalizePersianInput,
   CreateTextTransform,
+  SlugOptions,
+  ToPersianSlug,
   PersianDigitMode,
   PersianTextTransform,
   PersianSelection,

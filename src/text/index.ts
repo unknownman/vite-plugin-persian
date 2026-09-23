@@ -12,6 +12,7 @@ import {
   normalizePersianInput,
   sanitizePersianText,
 } from "./normalization.js";
+import { toPersianSlug } from "./slug.js";
 import type { TextVirtualModule } from "../types.js";
 
 export { normalizePersianText, toEnglishDigits, toPersianDigits } from "./runtime.js";
@@ -29,6 +30,7 @@ export {
   normalizePersianInput,
   resolvePersianInputTransform,
 } from "./normalization.js";
+export { toPersianSlug } from "./slug.js";
 export type {
   ApplyPersianInputResult,
   PersianDigitMode,
@@ -36,6 +38,7 @@ export type {
   PersianInputOptions,
   PersianSelection,
   PersianTextTransform,
+  SlugOptions,
   TextNormalizationOptions,
 } from "../types.js";
 export { adjustSelection } from "./caret.js";
@@ -65,6 +68,7 @@ export function createTextModule(): TextVirtualModule {
     normalizeHalfSpaces,
     normalizePersianInput,
     createTextTransform,
+    toPersianSlug,
   };
 }
 

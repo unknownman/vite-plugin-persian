@@ -3,6 +3,7 @@ import type { ComputedRef, Directive, DirectiveBinding, MaybeRefOrGetter } from 
 import { formatJalaliSafely } from "../jalali/framework.js";
 import { applyPersianInputTransform } from "../text/input.js";
 import { resolvePersianInputTransform } from "../text/normalization.js";
+import { toPersianSlug } from "../text/slug.js";
 import {
   isMobileNumber,
   isNationalCode,
@@ -11,7 +12,12 @@ import {
   toNumberWords,
   toPersianDigits,
 } from "../text/index.js";
-import type { DateInput, PersianInputOptions, PersianTextTransform } from "../types.js";
+import type {
+  DateInput,
+  PersianInputOptions,
+  PersianTextTransform,
+  SlugOptions,
+} from "../types.js";
 
 export {
   adjustSelection,
@@ -28,6 +34,7 @@ export {
   toEnglishDigits,
   toNumberWords,
   toPersianDigits,
+  toPersianSlug,
   toRial,
   toToman,
 } from "../text/index.js";
@@ -38,6 +45,7 @@ export type {
   PersianInputOptions,
   PersianSelection,
   PersianTextTransform,
+  SlugOptions,
   TextNormalizationOptions,
 } from "../types.js";
 
@@ -209,6 +217,29 @@ export function useMobileNumber(phone: MaybeRefOrGetter<string>): ComputedRef<bo
  */
 export function useNumberWords(num: MaybeRefOrGetter<number | string>): ComputedRef<string> {
   return computed(() => toNumberWords(resolveMaybeRefOrGetter(num)));
+}
+
+/**
+ * `usePersianSlug` — a reactive composable that derives a clean, SEO-friendly
+ * slug from a title. Accepts a plain value, a `Ref`, or a getter for the
+ * title, and re-generates the slug whenever the input changes.
+ *
+ * @example
+ * ```vue
+ * <script setup>
+ * import { ref } from "vue";
+ * import { usePersianSlug } from "vite-plugin-persian/vue";
+ *
+ * const title = ref("«آموزش جامع Vite (نسخه جدید) - بخش ۱!»");
+ * const slug = usePersianSlug(title); // "آموزش-جامع-vite-نسخه-جدید-بخش-۱"
+ * </script>
+ * ```
+ */
+export function usePersianSlug(
+  text: MaybeRefOrGetter<string | null | undefined>,
+  options?: SlugOptions,
+): ComputedRef<string> {
+  return computed(() => toPersianSlug(resolveMaybeRefOrGetter(text) ?? "", options));
 }
 
 /**

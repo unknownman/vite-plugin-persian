@@ -3,6 +3,7 @@ import type { ChangeEvent, RefObject } from "react";
 import { formatJalaliSafely } from "../jalali/framework.js";
 import { adjustSelection } from "../text/caret.js";
 import { resolvePersianInputTransform } from "../text/normalization.js";
+import { toPersianSlug } from "../text/slug.js";
 import {
   isMobileNumber,
   isNationalCode,
@@ -10,7 +11,12 @@ import {
   toNumberWords,
   toPersianDigits,
 } from "../text/index.js";
-import type { DateInput, PersianInputOptions, PersianSelection } from "../types.js";
+import type {
+  DateInput,
+  PersianInputOptions,
+  PersianSelection,
+  SlugOptions,
+} from "../types.js";
 
 export {
   adjustSelection,
@@ -27,6 +33,7 @@ export {
   toEnglishDigits,
   toNumberWords,
   toPersianDigits,
+  toPersianSlug,
   toRial,
   toToman,
 } from "../text/index.js";
@@ -37,6 +44,7 @@ export type {
   PersianInputOptions,
   PersianSelection,
   PersianTextTransform,
+  SlugOptions,
   TextNormalizationOptions,
 } from "../types.js";
 
@@ -242,4 +250,30 @@ export function usePersianInput(options?: PersianInputOptions): PersianInputBoun
   };
 
   return { ref: inputRef, value, onChange };
+}
+
+/**
+ * `usePersianSlug` — a memoized, reactive wrapper around {@link toPersianSlug}
+ * for deriving a clean, SEO-friendly slug from a title string.
+ *
+ * The slug is recomputed only when `text` or the relevant `options` fields
+ * change, and `undefined`/`null` input is treated as `""` (so it composes
+ * safely with form state).
+ *
+ * @example
+ * ```tsx
+ * const title = "«آموزش جامع Vite (نسخه جدید) - بخش ۱!»";
+ * const slug = usePersianSlug(title); // "آموزش-جامع-vite-نسخه-جدید-بخش-۱"
+ * ```
+ */
+export function usePersianSlug(
+  text: string | null | undefined,
+  options?: SlugOptions,
+): string {
+  return useMemo(
+    () => toPersianSlug(text ?? "", options),
+    // `options` is often an inline object literal; key on its meaningful
+    // fields so the memo survives re-renders.
+    [text, options?.lowercase, options?.separator],
+  );
 }

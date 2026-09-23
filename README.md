@@ -1,6 +1,6 @@
 # vite-plugin-persian
 
-A lightweight, framework-agnostic Vite plugin for Persian (Farsi) projects. It sets up your HTML for RTL, gives you typed Jalali (Solar Hijri) date utilities, Persian digit helpers, currency (Toman/Rial) formatting, Iranian National Code & mobile validation, and number-to-Persian-words conversion — served through tree-shakeable virtual modules with optional React, Vue, and Svelte bindings.
+A lightweight, framework-agnostic Vite plugin for Persian (Farsi) projects. It sets up your HTML for RTL, gives you typed Jalali (Solar Hijri) date utilities, Persian digit helpers, currency (Toman/Rial) formatting, Iranian National Code & mobile validation, number-to-Persian-words conversion, a caret-aware real-time form input formatter, and an SEO-friendly Persian slug generator — served through tree-shakeable virtual modules with optional React, Vue, and Svelte bindings.
 
 > Vite 5 • 6 • 7 • 8 — Node ≥ 18 — ESM & CJS
 
@@ -16,6 +16,8 @@ A lightweight, framework-agnostic Vite plugin for Persian (Farsi) projects. It s
 - **Currency utilities** — `toToman`, `toRial`, and `formatCurrency` with Persian/English digits and thousands separators.
 - **Iranian National Code & mobile validation** — `isNationalCode` (official 10-digit checksum), `isMobileNumber`/`normalizeMobileNumber` (`09xxxxxxxxx`).
 - **Number-to-Persian-words** — `toNumberWords` spells out big numbers exactly (BigInt-safe, up to 10²⁴), including decimals: `12500 → «دوازده هزار و پانصد»`.
+- **Form inputs formatter** (v0.4.0) — real-time Persian normalization for `<input>`/`<textarea>` (Arabic→Persian sanitizing, ZWNJ half-spaces, digits) with **built-in caret/cursor position retention**: `v-persian-input` (Vue), `usePersianInput` (React), `use:persianInput` (Svelte).
+- **SEO Persian slug generator** (v0.4.0) — `toPersianSlug` turns mixed Persian/English titles into clean, URL-safe slugs (`«آموزش جامع Vite (نسخه جدید) - بخش ۱!»` → `آموزش-جامع-vite-نسخه-جدید-بخش-۱`), intelligently stripping invisible Arabic/Persian diacritics (harakat, tatweel, …). Reactive `usePersianSlug` hooks included.
 - **Framework-native hooks** — `useJalaliDate`, `useNationalCode`, `useMobileNumber`, `useNumberWords`, `usePersianDigits` for React, Vue, and Svelte.
 - **Tree-shakeable** — only the engine you pick (`jalaali-js` by default, or `intl`) is bundled; the other is dropped.
 - **Zero runtime dependencies** — `jalaali-js` is compiled directly into the package.
@@ -213,6 +215,154 @@ persian({
 
 The same comment works immediately before a single declaration, and as the very first token of a file it disables transformation for the whole file (unless it directly guards the file's first rule).
 
+## Form inputs formatter (v0.4.0)
+
+Real-time, caret-aware Persian normalization for `<input>`/`<textarea>` elements. As the user types, the plugin runs the text pipeline — Arabic→Persian character sanitizing, ZWNJ half-space joining, and digit conversion — on every keystroke and paste, and **keeps the caret (cursor) exactly where it was**, even when the value is rewritten mid-field. The transform only ever performs 1:1 replacements or pure deletions, which is what makes precise caret retention possible.
+
+Each framework ships a drop-in primitive:
+
+| Framework | Helper                | Usage                                          |
+| --------- | --------------------- | ---------------------------------------------- |
+| Vue       | `vPersianInput`       | `<input v-model="name" v-persian-input />`     |
+| React     | `usePersianInput`     | `const input = usePersianInput(); <input {...input} />` |
+| Svelte    | `persianInput`        | `<input bind:value use:persianInput />`        |
+
+All three accept the same options:
+
+| Option        | Type                        | Default     | Description                                                      |
+| ------------- | --------------------------- | ----------- | ---------------------------------------------------------------- |
+| `sanitize`    | `boolean`                   | `true`      | Convert Arabic `ي`/`ى`→`ی` and `ك`→`ک`.                           |
+| `halfSpaces`  | `boolean`                   | `true`      | Insert/correct ZWNJ (نیمفاصله) for `می`/`نمی`/`ها`/`های`/`تر`/`ترین` joins — `"می شود"` → `"می‌شود"`. |
+| `digits`      | `"persian" \| "english" \| "none"` | `"persian"` | Numeral system applied to typed digits.                          |
+| `transform`   | `(text: string) => string`  | —           | Replaces the entire pipeline with your own transform (other options are ignored). |
+| `initialValue`| `string`                    | `""`        | Value rendered into the field on first mount (`usePersianInput`).|
+
+> **Vue** — `v-persian-input` registers its `input` listener in the directive's `created` hook, so it runs *before* Vue's `v-model` handler on the same event. The model always receives the cleaned value — no double commit, no flicker, and the caret is restored in place.
+>
+> **React** — `usePersianInput` is a controlled-input hook: every keystroke/paste is intercepted, the raw `e.target.value` is normalized before React state sees it, the DOM is patched synchronously, and the caret is restored (with a render-phase effect as a safety net).
+>
+> **Svelte** — `use:persianInput` normalizes on `input`, restores the caret, and re-dispatches the `input` event only when the value actually changed, so `bind:value` picks up the cleaned text on the same keystroke with no event loop.
+
+### Vue — `v-persian-input`
+
+Register globally (`app.directive("persian-input", vPersianInput)`) or per component (`directives: { persianInput: vPersianInput }`):
+
+```vue
+<script setup>
+import { vPersianInput } from "vite-plugin-persian/vue"; // or via app.directive
+import { ref } from "vue";
+const name = ref("");
+const bio = ref("");
+</script>
+
+<template>
+  <!-- defaults: sanitize + half-spaces + Persian digits -->
+  <input v-model="name" v-persian-input />
+
+  <!-- all options are configurable, or pass `false` to disable normalization -->
+  <textarea v-model="bio" v-persian-input="{ halfSpaces: false, digits: 'english' }" />
+</template>
+```
+
+### React — `usePersianInput`
+
+```tsx
+import { usePersianInput } from "vite-plugin-persian/react";
+
+function PersianField() {
+  const input = usePersianInput({ digits: "persian" });
+  return <input {...input} placeholder="متن فارسی" />;
+}
+```
+
+### Svelte — `use:persianInput`
+
+```svelte
+<script lang="ts">
+  import { persianInput } from "vite-plugin-persian/svelte";
+  let name = "";
+</script>
+
+<input bind:value={name} use:persianInput />
+```
+
+### Plain pipeline
+
+The same engine is exposed without a DOM dependency, so it works anywhere — including one-shot normalization over arbitrary strings:
+
+```ts
+import {
+  normalizePersianInput,
+  createTextTransform,
+  sanitizePersianText,
+  normalizeHalfSpaces,
+} from "virtual:persian/text";
+
+normalizePersianInput("می شود 1، را 2");      // "می‌شود ۱، را ۲"
+normalizePersianInput("يک متن", { sanitize: false }); // "يک متن"
+
+const transform = createTextTransform({ halfSpaces: false }); // reusable
+transform("می شود");                          // "می شود"
+
+sanitizePersianText("يك");                    // "یک"
+normalizeHalfSpaces("می شود");                // "می‌شود"
+```
+
+## SEO Persian Slug Generator (v0.4.0)
+
+`toPersianSlug` turns a Persian/English title into a clean, URL-safe, SEO-optimized slug. It understands mixed-language tokens and the quirks of the Arabic script:
+
+- **Keeps** Persian letters, English letters, and digits (Persian *and* Arabic-Indic numerals) intact — so `۱۴۰۳` stays `۱۴۰۳` and `19` stays `19`.
+- **Rewrites** every other character — spaces, `_`, existing `-`, punctuation, currency signs, ZWNJ, emojis — into a single word-boundary separator, collapsing runs and trimming leading/trailing separators.
+- **Strips invisible Arabic/Persian typography** — harakat/tashkeel diacritics (U+064B–U+065F), tatweel `ـ` (U+0640), superscript alef, bidi marks, and Quranic annotation marks — *dropping* them instead of separating on them: `"دَست"` → `"دست"`, and ZWNJ still counts as a boundary: `"می‌خواهم"` → `"می-خواهم"`.
+- **Handles mixed language gracefully**:
+
+```ts
+import { toPersianSlug } from "virtual:persian/text";
+
+toPersianSlug("«آموزش جامع Vite (نسخه جدید) - بخش ۱!»");
+// "آموزش-جامع-vite-نسخه-جدید-بخش-۱"
+
+toPersianSlug("سلام   دنیا!!!",  { separator: "_" });  // "سلام_دنیا"
+toPersianSlug("MIKHAIL",         { lowercase: false }); // "MIKHAIL"
+toPersianSlug("",                                      ) // ""
+```
+
+Reactive hooks are included for all three frameworks — `usePersianSlug(text, options)`:
+
+| Framework | Signature                                                 | Returns           |
+| --------- | --------------------------------------------------------- | ----------------- |
+| React     | `usePersianSlug(text: string \| null \| undefined, options?)` | `string`          |
+| Vue       | `usePersianSlug(text: MaybeRefOrGetter<...>, options?)`      | `ComputedRef<string>` |
+| Svelte    | `usePersianSlug(source: string \| Readable<...>, options?)`  | `Readable<string>` |
+
+```tsx
+// React
+const slug = usePersianSlug("«آموزش جامع Vite (نسخه جدید) - بخش ۱!»");
+// "آموزش-جامع-vite-نسخه-جدید-بخش-۱"
+```
+
+```vue
+<!-- Vue -->
+<script setup>
+import { ref } from "vue";
+import { usePersianSlug } from "vite-plugin-persian/vue";
+const title = ref("آموزش جامع Vite");
+const slug = usePersianSlug(title); // ComputedRef<string>
+</script>
+```
+
+```svelte
+<!-- Svelte -->
+<script lang="ts">
+  import { writable } from "svelte/store";
+  import { usePersianSlug } from "vite-plugin-persian/svelte";
+  const title = writable("آموزش جامع Vite");
+  const slug = usePersianSlug(title); // Readable<string>
+</script>
+<span>preview: {$slug}</span>
+```
+
 ## Virtual modules
 
 The plugin exposes three virtual modules. Add this line to `src/vite-env.d.ts` **once** to get full type safety (see [TypeScript](#typescript)):
@@ -243,7 +393,7 @@ getMonthName(10, "en");                        // "Dey"
 
 `formatJalali` supports the tokens `YYYY`, `YY`, `MMMM`, `MMM`, `MM`, `DD`, `d` and renders Persian month names. Dates are converted using local time components.
 
-### `virtual:persian/text` — digits, currency, validation & words
+### `virtual:persian/text` — digits, currency, validation, words, input formatting & slugs
 
 #### Persian digits & normalization
 
@@ -300,6 +450,17 @@ toNumberWords("1203450000");     // "یک میلیارد و دویست و سه �
 
 Exact for arbitrarily large numbers (BigInt-based, up to 10²⁴ «سپتیلیون»), including negative values and decimals. Invalid input yields `""`.
 
+#### Real-time input pipeline & SEO slugs (v0.4.0)
+
+`sanitizePersianText`, `normalizeHalfSpaces`, `normalizePersianInput`, and `createTextTransform` power the [form inputs formatter](#form-inputs-formatter-v040), and `toPersianSlug` generates [SEO slugs](#seo-persian-slug-generator-v040) — all importable straight from the text module:
+
+```ts
+import { normalizePersianInput, toPersianSlug } from "virtual:persian/text";
+
+normalizePersianInput("می شود 1");            // "می‌شود ۱"
+toPersianSlug("آموزش جامع Vite");            // "آموزش-جامع-vite"
+```
+
 ### `virtual:persian` — everything at once
 
 ```ts
@@ -333,6 +494,8 @@ import {
   useNationalCode,
   useMobileNumber,
   useNumberWords,
+  usePersianInput,
+  usePersianSlug,
 } from "vite-plugin-persian/react";
 ```
 
@@ -368,9 +531,20 @@ function PersonForm() {
     </>
   );
 }
+
+function PersianField() {
+  const input = usePersianInput();                // caret-aware formatter (v0.4.0)
+  return <input {...input} placeholder="متن فارسی" />;
+}
+
+function ArticleEditor() {
+  const [title] = useState("«آموزش جامع Vite (نسخه جدید) - بخش ۱!»");
+  const slug = usePersianSlug(title);             // "آموزش-جامع-vite-نسخه-جدید-بخش-۱"
+  return <small>slug: {slug}</small>;
+}
 ```
 
-`vite-plugin-persian/react` also re-exports the plain helpers: `toPersianDigits`, `toEnglishDigits`, `normalizePersianText`, `toToman`, `toRial`, `formatCurrency`, `isNationalCode`, `isMobileNumber`, `normalizeMobileNumber`, `toNumberWords`.
+`vite-plugin-persian/react` also re-exports the plain helpers: `toPersianDigits`, `toEnglishDigits`, `normalizePersianText`, `sanitizePersianText`, `normalizeHalfSpaces`, `normalizePersianInput`, `createTextTransform`, `toPersianSlug`, `toToman`, `toRial`, `formatCurrency`, `isNationalCode`, `isMobileNumber`, `normalizeMobileNumber`, `toNumberWords`.
 
 ## Vue helpers
 
@@ -383,10 +557,13 @@ Register the directive globally in your app entry (or per-component via `directi
 ```ts
 // main.ts
 import { createApp } from "vue";
-import { vPersianDigits } from "vite-plugin-persian/vue";
+import { vPersianDigits, vPersianInput } from "vite-plugin-persian/vue";
 import App from "./App.vue";
 
-createApp(App).directive("persian-digits", vPersianDigits).mount("#app");
+createApp(App)
+  .directive("persian-digits", vPersianDigits)
+  .directive("persian-input", vPersianInput)
+  .mount("#app");
 ```
 
 ```vue
@@ -399,6 +576,9 @@ createApp(App).directive("persian-digits", vPersianDigits).mount("#app");
 
   <!-- form controls get their .value converted -->
   <input v-persian-digits="model" />
+
+  <!-- v0.4.0: real-time, caret-aware Persian input formatter -->
+  <input v-model="name" v-persian-input />
 </template>
 
 <script setup lang="ts">
@@ -408,6 +588,7 @@ import {
   useNationalCode,
   useMobileNumber,
   useNumberWords,
+  usePersianSlug,
 } from "vite-plugin-persian/vue";
 
 const price = ref(12500);
@@ -415,12 +596,13 @@ const jalali = useJalaliDate(new Date(2024, 2, 20), "d MMMM YYYY"); // ComputedR
 const codeValid = useNationalCode("0010042911");                    // ComputedRef<boolean>
 const phoneValid = useMobileNumber("09123456789");                  // ComputedRef<boolean>
 const words = useNumberWords(price);                                // ComputedRef<string>
+const slug = usePersianSlug("آموزش جامع Vite");                     // ComputedRef<string>
 </script>
 ```
 
 Composables accept a plain value, a `Ref`, or a getter function (`MaybeRefOrGetter`) and return reactive `ComputedRef`s — they stay in sync when a `ref` changes. `usePersianDigits()` returns `{ toPersianDigits, toEnglishDigits, normalizePersianText }` as plain functions.
 
-`vite-plugin-persian/vue` also re-exports the plain helpers: `toPersianDigits`, `toEnglishDigits`, `normalizePersianText`, `toToman`, `toRial`, `formatCurrency`, `isNationalCode`, `isMobileNumber`, `normalizeMobileNumber`, `toNumberWords`.
+`vite-plugin-persian/vue` also re-exports the plain helpers: `toPersianDigits`, `toEnglishDigits`, `normalizePersianText`, `sanitizePersianText`, `normalizeHalfSpaces`, `normalizePersianInput`, `createTextTransform`, `toPersianSlug`, `toToman`, `toRial`, `formatCurrency`, `isNationalCode`, `isMobileNumber`, `normalizeMobileNumber`, `toNumberWords`.
 
 ## Svelte helpers
 
@@ -439,7 +621,9 @@ Works with both Svelte 4 (stores) and Svelte 5 (runes). Everything is plain Type
     useNationalCode,
     useMobileNumber,
     useNumberWords,
+    usePersianSlug,
     persianDigits,
+    persianInput,
   } from "vite-plugin-persian/svelte";
 
   export let price: number; // number
@@ -452,21 +636,27 @@ Works with both Svelte 4 (stores) and Svelte 5 (runes). Everything is plain Type
   const codeValid = useNationalCode(code);   // Readable<boolean>
   const phoneValid = useMobileNumber(phone); // Readable<boolean>
   const words = useNumberWords(writable(12500)); // Readable<string>
+  const slug = usePersianSlug("آموزش جامع Vite");          // Readable<string>
+  const name = writable("");
 </script>
 
 <!-- actions: convert bound values, re-running on updates -->
 <span use:persianDigits={price}>{price}</span>
 <input use:persianDigits bind:value />
 
+<!-- v0.4.0: real-time, caret-aware Persian input formatter -->
+<input bind:value={name} use:persianInput />
+
 <!-- hook output is reactive via the $ store syntax -->
 <span>{$priceFa}</span>
 <span>{$jalaali}</span>
 <span>{$words}</span>
+<span>{$slug}</span>
 ```
 
-`usePersianDigits`, `useEnglishDigits`, `useJalaliDate`, `useNationalCode`, `useMobileNumber`, and `useNumberWords` accept a plain value or any `Readable` from `svelte/store`, and return `Readable`s that react to changes. `persianDigits` is a standard Svelte action with `update`/`destroy` lifecycle.
+`usePersianDigits`, `useEnglishDigits`, `useJalaliDate`, `useNationalCode`, `useMobileNumber`, `useNumberWords`, and `usePersianSlug` accept a plain value or any `Readable` from `svelte/store`, and return `Readable`s that react to changes. `persianDigits` and `persianInput` are standard Svelte actions with `update`/`destroy` lifecycle.
 
-`vite-plugin-persian/svelte` also re-exports the plain helpers: `toPersianDigits`, `toEnglishDigits`, `normalizePersianText`, `toToman`, `toRial`, `formatCurrency`, `isNationalCode`, `isMobileNumber`, `normalizeMobileNumber`, `toNumberWords`.
+`vite-plugin-persian/svelte` also re-exports the plain helpers: `toPersianDigits`, `toEnglishDigits`, `normalizePersianText`, `sanitizePersianText`, `normalizeHalfSpaces`, `normalizePersianInput`, `createTextTransform`, `toPersianSlug`, `toToman`, `toRial`, `formatCurrency`, `isNationalCode`, `isMobileNumber`, `normalizeMobileNumber`, `toNumberWords`.
 
 ## TypeScript
 
@@ -507,6 +697,8 @@ persian({
   experimental: { logicalProperties: { ignore: [".legacy-fixed-sidebar"] } },
 });
 ```
+
+> **v0.4.0 options live on the helpers, not the plugin.** The input formatter options (`sanitize`, `halfSpaces`, `digits`, `transform`, `initialValue`) and slug options (`lowercase`, `separator`) are passed to the individual React/Vue/Svelte call-sites — see [Form inputs formatter](#form-inputs-formatter-v040) and [SEO Persian Slug Generator](#seo-persian-slug-generator-v040). They need no plugin-level configuration.
 
 ## Notes & limitations
 
